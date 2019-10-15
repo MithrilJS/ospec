@@ -1,5 +1,14 @@
-ospec [![npm Version](https://img.shields.io/npm/v/ospec.svg)](https://www.npmjs.com/package/ospec) [![npm License](https://img.shields.io/npm/l/ospec.svg)](https://www.npmjs.com/package/ospec)
+ospec [![npm Version](https://img.shields.io/npm/v/ospec.svg)](https://www.npmjs.com/package/ospec) [![npm License](https://img.shields.io/npm/l/ospec.svg)](https://www.npmjs.com/package/ospec) [![npm Downloads](https://img.shields.io/npm/dm/ospec.svg)](https://www.npmjs.com/package/ospec) [![Donate at OpenCollective](https://img.shields.io/opencollective/all/mithriljs.svg?colorB=brightgreen)](https://opencollective.com/mithriljs)
 =====
+
+<p align="center">
+	<a href="https://travis-ci.org/MithrilJS/ospec">
+		<img src="https://img.shields.io/travis/MithrilJS/ospec/master.svg" alt="Build Status">
+	</a>
+	<a href="https://gitter.im/mithriljs/mithril.js">
+		<img src="https://img.shields.io/gitter/room/mithriljs/mithril.js.svg" alt="Gitter" />
+	</a>
+</p>
 
 [About](#about) | [Usage](#usage) | [CLI](#command-line-interface) | [API](#api) | [Goals](#goals)
 

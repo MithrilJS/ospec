@@ -4,10 +4,15 @@
   "description": "Noiseless testing framework",
   "main": "ospec.js",
   "unpkg": "ospec.js",
-  "keywords": [ "testing" ],
+  "keywords": [
+    "testing"
+  ],
   "author": "Leo Horie <leohorie@hotmail.com>",
   "license": "MIT",
-  "files": [ "ospec.js", "bin" ],
+  "files": [
+    "ospec.js",
+    "bin"
+  ],
   "bin": "./bin/ospec",
   "repository": "github:MithrilJS/ospec",
   "dependencies": {
@@ -15,5 +20,8 @@
   },
   "scripts": {
     "test": "node bin/ospec"
+  },
+  "devDependencies": {
+    "mithril": "^2.0.4"
   }
 }

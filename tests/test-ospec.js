@@ -5,7 +5,7 @@ var o, callAsync
 
 if (typeof require !== "undefined") {
 	/* eslint-disable global-require */
-	callAsync = require("mithril/test-utils/callAsync")
+	callAsync = require("./callAsync")
 	o = require("../ospec")
 	/* eslint-enable global-require */
 } else {

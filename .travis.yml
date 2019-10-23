@@ -13,3 +13,7 @@ cache:
 install:
 - npm install
 - npm rm husky
+
+# Run tests and lint
+script:
+- npm test

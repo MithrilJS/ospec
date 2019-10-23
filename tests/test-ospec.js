@@ -304,17 +304,22 @@ o.spec("ospec", function() {
 					done()
 				})
 			})
-			o("hooks work as intended the third time (arrow function)", (done) => {
-				callAsync(function() {
-					var spy = o.spy()
-					spy(a)
+			/*eslint-disable no-eval*/
+			try {
+				eval("(()=>{})()")
+				o("hooks work as intended the third time (arrow function)", (done) => {
+					callAsync(function() {
+						var spy = o.spy()
+						spy(a)
 
-					o(a).equals(1)
-					o(b).equals(1)
+						o(a).equals(1)
+						o(b).equals(1)
 
-					done()
+						done()
+					})
 				})
-			})
+			} catch (e) {/*ES5 env, or no eval, ignore*/}
+			/*eslint-enable no-eval*/
 		})
 	})
 

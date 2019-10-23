@@ -2,7 +2,7 @@
 
 // So it can load correctly in browsers using a global instance.
 var o
-let callAsync = typeof setImmediate === "function" ? setImmediate : setTimeout
+var callAsync = typeof setImmediate === "function" ? setImmediate : setTimeout
 
 if (typeof require !== "undefined") {
 	/* eslint-disable global-require */

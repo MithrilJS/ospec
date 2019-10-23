@@ -1,15 +1,14 @@
 "use strict"
 
 // So it can load correctly in browsers using a global instance.
-var o, callAsync
+var o
+let callAsync = typeof setImmediate === "function" ? setImmediate : setTimeout
 
 if (typeof require !== "undefined") {
 	/* eslint-disable global-require */
-	callAsync = require("./callAsync")
 	o = require("../ospec")
 	/* eslint-enable global-require */
 } else {
-	callAsync = typeof setImmediate === "function" ? setImmediate : setTimeout
 	o = window.o
 }
 

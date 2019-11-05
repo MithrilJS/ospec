@@ -304,22 +304,6 @@ o.spec("ospec", function() {
 					done()
 				})
 			})
-			/*eslint-disable no-eval*/
-			try {
-				eval("(()=>{})()")
-				o("hooks work as intended the third time (arrow function)", (done) => {
-					callAsync(function() {
-						var spy = o.spy()
-						spy(a)
-
-						o(a).equals(1)
-						o(b).equals(1)
-
-						done()
-					})
-				})
-			} catch (e) {/*ES5 env, or no eval, ignore*/}
-			/*eslint-enable no-eval*/
 		})
 	})
 
@@ -695,7 +679,7 @@ o.spec("ospec", function() {
 			})
 			oo.run(function(results) {
 				o(results.length).equals(2)
-				o(results[1].message).equals(`howdy\n\n${results[0].message}`)
+				o(results[1].message).equals('howdy\n\n'+results[0].message)
 				o(results[1].pass).equals(false)
 				done()
 			})
@@ -742,6 +726,21 @@ o.spec("the done parser", function() {
 				oo(
 					'Async test parser mistakenly identified 1st token after a parens to be `done` reference',
 					done => {
+						oo(threw).equals(false)
+						done()
+					}
+				)
+			*/}))
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(false)
+		})
+		o("has no false positives 2", function(){
+			var oo = o.new()
+			var threw = false
+			eval(getCommentContent(function(){/*
+				oo(
+					'Async test parser mistakenly identified 1st token after a parens to be `(done)` reference',
+					(done) => {
 						oo(threw).equals(false)
 						done()
 					}

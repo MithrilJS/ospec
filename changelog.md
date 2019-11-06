@@ -13,6 +13,7 @@
 - [1.3 and earlier](#13-and-earlier)
 
 ### Upcoming...
+- Fix arrow functions (`(done) => { }`) support in asynchronous tests. ([#2](https://github.com/MithrilJS/ospec/pull/2) [@kesara](https://github.com/kesara))
 
 ### 4.0.1
 _2019-08-18_

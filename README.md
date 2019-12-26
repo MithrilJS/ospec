@@ -378,6 +378,12 @@ Here's an example of mixing them all together:
 ospec '**/*.test.js' --ignore 'folder1/**' --require esm ./my-file.js
 ```
 
+#### For NodeJS v13+ only
+
+You can use ospec to test an ES6 module without depending on the `esm` NPM package. Use the `--module` option.
+
+If your CPU has more than one core, you can improve the test run time by using the `--parallel` option which creates one test worker per hardware thread.
+
 ### Run ospec directly from the command line:
 
 ospec comes with an executable named `ospec`. npm auto-installs local binaries to `./node_modules/.bin/`. You can run ospec by running `./node_modules/.bin/ospec` from your project root, but there are more convenient methods to do so that we will soon describe.

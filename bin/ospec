@@ -2,6 +2,8 @@
 "use strict"
 
 var o = require("../ospec")
+o("dummy spec to start the timer", () => {})
+
 var path = require("path")
 var glob = require("glob")
 
@@ -25,21 +27,29 @@ function parseArgs(argv) {
 var args = parseArgs(process.argv)
 var globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.js"]
 var ignore = ["**/node_modules/**"].concat(args.ignore || [])
+var parallel = args.parallel != null
+var isModule = args.module != null
+var dependencies = args.require
 var cwd = process.cwd()
 
-if (args.require) {
-	args.require.forEach(function(module) {
-		// eslint-disable-next-line global-require
-		if (module) require(require.resolve(module, {paths: [cwd]}))
-	})
-}
-
-var pending = globList.length
-globList.forEach(function(globPattern) {
-	glob(globPattern, {ignore: ignore})
-		.on("match", function(fileName) { require(path.join(cwd, fileName)) }) // eslint-disable-line global-require
-		.on("error", function(e) { console.error(e) })
-		.on("end", function() { if (--pending === 0) o.run()})
-});
-
 process.on("unhandledRejection", function(e) { console.error("Uncaught (in promise) " + e.stack) })
+
+if (isModule || parallel) {
+	// eslint-disable-next-line global-require
+	require('./async-core')({globList, ignore, parallel, dependencies, cwd})
+} else {
+	if (dependencies) {
+		dependencies.forEach(function(module) {
+			// eslint-disable-next-line global-require
+			if (module) require(require.resolve(module, {paths: [cwd]}))
+		})
+	}
+	var pending = globList.length
+	globList.forEach(function(globPattern) {
+		glob(globPattern, {ignore: ignore})
+			// eslint-disable-next-line global-require
+			.on("match", function(fileName) { require(path.join(cwd, fileName)) })
+			.on("error", function(e) { console.error(e) })
+			.on("end", function() { if (--pending === 0) o.run()})
+	});
+}

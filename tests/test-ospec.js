@@ -107,18 +107,19 @@ o.spec("reporting", function() {
 	})
 	o("o.report() returns the number of failures", function () {
 		var log = console.log, error = console.error
+		var oo = o.new()
 		console.log = o.spy()
 		console.error = o.spy()
 
 		function makeError(msg) {try{throw msg ? new Error(msg) : new Error} catch(e){return e}}
 		try {
-			var errCount = o.report([{pass: true}, {pass: true}])
+			var errCount = oo.report([{pass: true}, {pass: true}])
 
 			o(errCount).equals(0)
 			o(console.log.callCount).equals(1)
 			o(console.error.callCount).equals(0)
 
-			errCount = o.report([
+			errCount = oo.report([
 				{pass: false, error: makeError("hey"), message: "hey"}
 			])
 
@@ -126,7 +127,7 @@ o.spec("reporting", function() {
 			o(console.log.callCount).equals(2)
 			o(console.error.callCount).equals(1)
 
-			errCount = o.report([
+			errCount = oo.report([
 				{pass: false, error: makeError("hey"), message: "hey"},
 				{pass: true},
 				{pass: false, error: makeError("ho"), message: "ho"}

@@ -3,12 +3,16 @@
 if (typeof module !== "undefined") module["exports"] = m()
 else window.o = m()
 })(function init(name) {
-	var spec = {}, subjects = [], results, only = [], ctx = spec, start, stack = 0, nextTickish, hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
+	var spec, subjects = [], results, only = [], ctx, start, stack = 0, nextTickish, hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/), timeoutStackName
 	var globalTimeout = noTimeoutRightNow
 	var currentTestError = null
-	if (name != null) spec[name] = ctx = {}
-
+	function reset() {
+		results = null
+		spec = ctx = {}
+		if (name != null) spec[name] = ctx = {}
+	}
+	reset()
 	try {throw new Error} catch (e) {
 		var ospecFileName = e.stack && (/[\/\\](.*?):\d+:\d+/).test(e.stack) ? e.stack.match(/[\/\\](.*?):\d+:\d+/)[1] : null
 	}
@@ -18,6 +22,7 @@ else window.o = m()
 			return new Assert(subject)
 		} else {
 			if (isRunning()) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'.")
+			if (start == null) start = Date.now()
 			subject = String(subject)
 			if (subject.charCodeAt(0) === 1) throw new Error("test names starting with '\\x01' are reserved for internal use.")
 			ctx[unique(subject)] = new Task(predicate, ensureStackTrace(new Error))
@@ -89,7 +94,6 @@ else window.o = m()
 	}
 	o.run = function(reporter) {
 		results = []
-		start = new Date
 		test(spec, [], [], new Task(function() {
 			setTimeout(function () {
 				timeoutStackName = getStackName({stack: o.cleanStackTrace(ensureStackTrace(new Error))}, /([\w \.]+?:\d+:\d+)/)
@@ -98,6 +102,7 @@ else window.o = m()
 					var errCount = o.report(results)
 					if (hasProcess && errCount !== 0) process.exit(1) // eslint-disable-line no-process-exit
 				}
+				reset()
 			})
 		}, null), 200 /*default timeout delay*/)
 
@@ -374,6 +379,7 @@ else window.o = m()
 			(name ? name + ": " : "") + resultSummary + runningTime,
 			cStyle((errCount === 0 ? "green" : "red"), true), ""
 		)
+		start = null
 		return errCount
 	}
 

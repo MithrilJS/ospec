@@ -25,7 +25,7 @@ const threadAPI = (() => {
 	try {
 		// Modern NodeJS
 		const {Worker, parentPort, workerData: wd} = require("worker_threads")
-		const useModule = wd != null && wd.indexOf("--module") !== -1
+		const useModule = wd != null && wd.includes("--module")
 		return {
 			spawn(name, workerData) {
 				const w = new Worker(name, {workerData})
@@ -52,7 +52,7 @@ const threadAPI = (() => {
 	} catch(_) {
 		// Fallback
 		const child_process = require("child_process")
-		const useModule = process.argv.indexOf("--module") !== -1
+		const useModule = process.argv.includes("--module")
 		return {
 			spawn(name, args) {
 				const p = child_process.fork(name, args, {stdio: 'inherit'})

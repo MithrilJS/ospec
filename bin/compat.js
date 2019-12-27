@@ -13,14 +13,8 @@ function loadWithImport (x) {
 	return eval("import(x)")
 }
 
-function loadWithRequire (x) {
-	return new Promise((fulfill, reject) => {
-		try {
-			fulfill(require(x))
-		} catch(e) {
-			reject(e)
-		}
-	})
+async function loadWithRequire (x) {
+	return require(x)
 }
 
 function throwIt(e) {
@@ -31,7 +25,7 @@ const threadAPI = (() => {
 	try {
 		// Modern NodeJS
 		const {Worker, parentPort, workerData: wd} = require("worker_threads")
-		const useModule = wd != null && wd.indexOf("--module")
+		const useModule = wd != null && wd.indexOf("--module") !== -1
 		return {
 			spawn(name, workerData) {
 				const w = new Worker(name, {workerData})

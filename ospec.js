@@ -146,10 +146,10 @@ else window.o = m()
 				// for internal use only
 				function finalizeAsync(err) {
 					if (err == null) {
-						if (task.err != null) succeed(new Assert)
+						if (task.err != null) succeed(new Assert().result)
 					} else {
-						if (err instanceof Error) fail(new Assert, err.message, err)
-						else fail(new Assert, String(err), null)
+						if (err instanceof Error) fail(new Assert().result, err.message, err)
+						else fail(new Assert().result, String(err), null)
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
 					if (current === cursor) next()
@@ -278,8 +278,8 @@ else window.o = m()
 	function isRunning() {return results != null}
 	function Assert(value) {
 		this.value = value
-		this.i = results.length
-		results.push({pass: null, context: "", message: "Incomplete assertion in the test definition starting at...", error: currentTestError, testError: currentTestError})
+		this.result = {pass: null, context: "", message: "Incomplete assertion in the test definition starting at...", error: currentTestError, testError: currentTestError}
+		results.push(this.result)
 	}
 	function Task(fn, err) {
 		this.fn = fn
@@ -289,26 +289,25 @@ else window.o = m()
 		Assert.prototype[name] = function assert(value) {
 			var self = this
 			var message = serialize(self.value) + "\n  " + verb + "\n" + serialize(value)
-			if (compare(self.value, value)) succeed(self, message)
-			else fail(self, message)
-			var result = results[self.i]
+			if (compare(self.value, value)) succeed(self.result, message)
+			else fail(self.result, message)
 			return function(message) {
-				if (!result.pass) {
-					result.message = message + "\n\n" + result.message
+				if (!self.result.pass) {
+					self.result.message = message + "\n\n" + self.result.message
 				}
 			}
 		}
 	}
-	function succeed(assertion, message) {
-		results[assertion.i].pass = true
-		results[assertion.i].context = subjects.join(" > ")
-		results[assertion.i].message = message
+	function succeed(result, message) {
+		result.pass = true
+		result.context = subjects.join(" > ")
+		result.message = message
 	}
-	function fail(assertion, message, error) {
-		results[assertion.i].pass = false
-		results[assertion.i].context = subjects.join(" > ")
-		results[assertion.i].message = message
-		results[assertion.i].error = error != null ? error : ensureStackTrace(new Error)
+	function fail(result, message, error) {
+		result.pass = false
+		result.context = subjects.join(" > ")
+		result.message = message
+		result.error = error != null ? error : ensureStackTrace(new Error)
 	}
 	function serialize(value) {
 		if (hasProcess) return require("util").inspect(value) // eslint-disable-line global-require

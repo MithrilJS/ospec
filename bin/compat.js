@@ -19,7 +19,7 @@ function loadWithRequire (x) {
 	})
 }
 
-function onError(e) {
+function throwIt(e) {
 	throw e
 }
 
@@ -31,7 +31,7 @@ const threadAPI = (() => {
 		return {
 			spawn(name, workerData) {
 				const w = new Worker(name, {workerData})
-				w.on("error", onError)
+				w.on("error", throwIt)
 				return w
 			},
 			// JSON.stringify()/.parse() is faster than the structured copy
@@ -58,7 +58,7 @@ const threadAPI = (() => {
 		return {
 			spawn(name, args) {
 				const p = child_process.fork(name, args, {stdio: 'inherit'})
-				p.on("error", onError)
+				p.on("error", throwIt)
 				return p
 			},
 			sendMessage(_process, message) {

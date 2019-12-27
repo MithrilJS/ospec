@@ -16,10 +16,11 @@ module.exports = async function asyncCore({
 	const useParallel = parallel != null
 	const maxTaskCount = useParallel
 		? parallel.length === 0
+			// this reflects the number of hardware threads
 			? os.cpus().length
-			// extra check because parseInt and Number are too liberal as-is...
+			// Extra check because parseInt and Number are too liberal as-is...
 			// `Number(null)` is zero, and `Number(["1"])` somehow works
-			// thanks to the arcane magic of JS automatic type conversions
+			// thanks to the arcane magic of JS automatic type conversions.
 			: Number(parallel[0].match(/^\d+$/))
 		: 1
 	if (maxTaskCount === 0) {
@@ -43,12 +44,13 @@ module.exports = async function asyncCore({
 
 	function next(task, fulfill, worker = null) {
 		if (testQueue.length > 0) {
-			// avoid growing the stack needlessly
+			// There's some work to do
+			// (avoid growing the stack needlessly)
 			process.nextTick(task, testQueue.shift(), fulfill, worker)
 		} else if (globsPending > 0) {
 			// poll to avoid a race condition when the test workers are
-			// being starved by a long-running glob with few matches
-			// without this, the runner may end prematurely
+			// being starved by a long-running glob with few matches.
+			// Without this, the runner may end prematurely.
 			setTimeout(() => next(task, fulfill, worker), 10)
 		} else {
 			// nothing left in the queue, we're done.
@@ -73,8 +75,7 @@ module.exports = async function asyncCore({
 	}
 
 	function workerTask(path, fulfill, worker) {
-		worker.on("message", function onMessage(res) {
-			worker.removeListener("message", onMessage)
+		worker.once("message", (res) => {
 			results[path] = res
 			next(workerTask, fulfill, worker)
 		})

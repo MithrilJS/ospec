@@ -1,3 +1,5 @@
+"use strict"
+
 // here lies code to even out API inconsistencies between
 // the various methods that can underlie the new test
 // runner:
@@ -5,6 +7,8 @@
 // - `import()` vs `require()`
 // - `worker_threads` vs `child_process`
 
+// eval required for b/w compat (a bare `import()` causes the parser to
+// throw otherwise).
 function loadWithImport (x) {
 	return eval("import(x)")
 }

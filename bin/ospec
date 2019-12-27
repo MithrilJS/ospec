@@ -27,16 +27,16 @@ function parseArgs(argv) {
 var args = parseArgs(process.argv)
 var globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.js"]
 var ignore = ["**/node_modules/**"].concat(args.ignore || [])
-var parallel = args.parallel != null
-var isModule = args.module != null
+var parallel = args.parallel
+var useModule = args.module != null
 var dependencies = args.require
 var cwd = process.cwd()
 
 process.on("unhandledRejection", function(e) { console.error("Uncaught (in promise) " + e.stack) })
 
-if (isModule || parallel) {
+if (useModule || parallel) {
 	// eslint-disable-next-line global-require
-	require('./async-core')({globList, ignore, parallel, dependencies, cwd})
+	require('./async-core')({globList, ignore, parallel, useModule, dependencies, cwd})
 } else {
 	if (dependencies) {
 		dependencies.forEach(function(module) {

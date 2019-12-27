@@ -5,59 +5,80 @@ const o = require("../ospec")
 const glob = require("glob")
 const os = require("os")
 const path = require("path")
-const {Worker} = require("worker_threads")
+const {
+	spawn, sendMessage, decodeMessage, terminate,
+	loadWithImport, loadWithRequire
+} = require("./compat")
 
-module.exports = async function asyncCore({globList, ignore, parallel, dependencies, cwd}) {
+module.exports = async function asyncCore({
+	globList, ignore, parallel, useModule, dependencies, cwd
+}) {
+	const useParallel = parallel != null
+	const maxTaskCount = useParallel
+		? parallel.length === 0
+			? os.cpus().length
+			// extra check because parseInt and Number are too liberal as-is...
+			// `Number(null)` is zero, and `Number(["1"])` somehow works
+			// thanks to the arcane magic of JS automatic type conversions
+			: Number(parallel[0].match(/^\d+$/))
+		: 1
+	if (maxTaskCount === 0) {
+		console.error(new TypeError(`Invalid value for --parallel: ${parallel[0]}`))
+		// eslint-disable-next-line no-process-exit
+		process.exit(1)
+	}
+
+	const load = useModule ? loadWithImport : loadWithRequire
+
 	if (dependencies) await Promise.all(
 		dependencies.filter((dep) => dep != null).map(
-			(module) => import(require.resolve(module, {paths: [cwd]}))
+			(module) => load(require.resolve(module, {paths: [cwd]}))
 		)
 	)
-
-	var cores = parallel ? os.cpus().length : 1
 
 	const testQueue = []
 	const results = []
 	const threads = []
 	let globsPending = globList.length
 
-	function next(task, resolve, worker = null) {
-		if (testQueue.length > 0) resolve(task(testQueue.shift(), worker))
-		// poll to avoid a race condition when the test workers are
-		// being starved by a long-running glob with few matches
-		else if (globsPending > 0) setTimeout(() => next(task, resolve, worker), 10)
-		// nothing left in the queue, we're done.
-		else {
-			if (worker != null) worker.terminate()
-			resolve()
+	function next(task, fulfill, worker = null) {
+		if (testQueue.length > 0) {
+			// avoid growing the stack needlessly
+			process.nextTick(task, testQueue.shift(), fulfill, worker)
+		} else if (globsPending > 0) {
+			// poll to avoid a race condition when the test workers are
+			// being starved by a long-running glob with few matches
+			// without this, the runner may end prematurely
+			setTimeout(() => next(task, fulfill, worker), 10)
+		} else {
+			// nothing left in the queue, we're done.
+			if (worker != null) terminate(worker)
+			fulfill()
 		}
 	}
 
-	function localTask(path) {
-		// eslint-disable-next-line no-async-promise-executor
-		return new Promise(async (resolve) => {
-			try {
-				await import(path)
-				o.run((res) => {
-					results[path] = res
-					next(localTask, resolve)
-				})
-			} catch(e) {
-				results.push({pass: false, context: e.message, message: e.stack, error: e})
-				next(localTask, resolve)
-			}
-		})
+	async function localTask(path, fulfill) {
+		try {
+			await load(path)
+			o.run((res) => {
+				results[path] = res
+				next(localTask, fulfill)
+			})
+		} catch(e) {
+			results.push({
+				pass: false, context: e.message, message: e.stack, error: e
+			})
+			next(localTask, fulfill)
+		}
 	}
 
-	function workerTask(path, worker) {
-		return new Promise((resolve) => {
-			worker.on("message", function onMessage(res) {
-				worker.off("message", onMessage)
-				results[path] = res
-				next(workerTask, resolve, worker)
-			})
-			worker.postMessage(path)
+	function workerTask(path, fulfill, worker) {
+		worker.on("message", function onMessage(res) {
+			worker.removeListener("message", onMessage)
+			results[path] = res
+			next(workerTask, fulfill, worker)
 		})
+		sendMessage(worker, path)
 	}
 
 	// with the parallel runner and multiple glob patters,
@@ -66,19 +87,28 @@ module.exports = async function asyncCore({globList, ignore, parallel, dependenc
 	// files to avoid the issue.
 	const scheduled = new Set()
 
+	const childOptions = useModule ? ["--module"] : []
+
 	function schedule(path) {
 		if (!scheduled.has(path)) {
 			scheduled.add(path)
-			if (cores-- > 0) {
-				if (cores > 0) {
-					threads.push(workerTask(path, new Worker(require.resolve("./worker"))))
+			if (threads.length < maxTaskCount) {
+				if (useParallel) {
+					threads.push(new Promise((fulfill)=> {
+						const worker = spawn(
+							require.resolve("./worker"),
+							childOptions
+						)
+						workerTask(path, fulfill, worker)
+					}))
 				} else {
-					// common path for non-parallel runs and for the last task
-					// in parallel mode, which runs in the same thread as the
-					// glob
-					threads.push(localTask(path))
+					threads.push(new Promise(
+						(fulfill)=>{localTask(path, fulfill)}
+					))
 				}
-			} else testQueue.push(path)
+			} else {
+				testQueue.push(path)
+			}
 		}
 	}
 
@@ -87,10 +117,14 @@ module.exports = async function asyncCore({globList, ignore, parallel, dependenc
 	// results list, we restore the "pass" items.
 	function unpack(results) {
 		// ensure that the reporting order is stable
-		return Object.keys(results).sort().flatMap((path) => {
+		return Object.keys(results).sort().reduce((acc, path) => {
 			const res = results[path]
-			return Array.isArray(res) ? res : unpackOneFile(JSON.parse(res))
-		})
+			const unpacked = Array.isArray(res) 
+				? res 
+				: unpackOneFile(decodeMessage(res))
+			acc.push.apply(acc, unpacked)
+			return acc
+		}, [])
 	}
 
 	const pass = {pass: true}
@@ -106,10 +140,13 @@ module.exports = async function asyncCore({globList, ignore, parallel, dependenc
 		glob(globPattern, {ignore: ignore})
 			.on("match", (fileName) => { schedule(path.join(cwd, fileName)) })
 			.on("error", (e) => { console.error(e) })
-			.on("end", () => {if (--globsPending === 0) Promise.all(threads).then(() => {
-				const failures = o.report(unpack(results))
-				// eslint-disable-next-line no-process-exit
-				if (failures > 0) process.exit(1)
-			})})
+			.on("end", async () => {
+				if (--globsPending === 0) {
+					await Promise.all(threads)
+					const failures = o.report(unpack(results))
+					// eslint-disable-next-line no-process-exit
+					if (failures > 0) process.exit(1)
+				}
+			})
 	});
 }

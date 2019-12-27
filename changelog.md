@@ -14,9 +14,10 @@
 
 ### Upcoming...
 
-#### Tentatively for v4.1.0
+***Tentatively for v4.1.0***
 
-- Add the `--module` and `--parallel` options to the runner, for recent NodeJS versions
+- Add the `--module` option to the runner for native module support in NodeJS 13.2+
+- Add the `--parallel` options to the runner
 - Fix arrow functions (`(done) => { }`) support in asynchronous tests. ([#2](https://github.com/MithrilJS/ospec/pull/2) [@kesara](https://github.com/kesara))
 
 ### 4.0.1

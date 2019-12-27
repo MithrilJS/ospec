@@ -14,6 +14,11 @@
     "glob": "^7.1.3"
   },
   "scripts": {
-    "test": "node bin/ospec && node bin/ospec --parallel && node bin/ospec --module"
+    "test": "npm run test:normal && npm run test:require  && npm run test:parallel  && npm run test:module  && npm run test:module-parallel",
+    "test:normal": "node bin/ospec",
+    "test:require": "node bin/ospec --require ./var/extra.js",
+    "test:parallel": "node bin/ospec --parallel 2 --require ./var/extra.js",
+    "test:module": "node bin/ospec --module --require ./var/extra.js",
+    "test:module-parallel": "node bin/ospec --module --parallel --require ./var/extra.js"
   }
 }

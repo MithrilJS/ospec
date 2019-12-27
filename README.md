@@ -366,6 +366,12 @@ You can also provide ignore patterns (note: always add `--ignore` AFTER match pa
 ospec --ignore 'folder1/**' 'folder2/**'
 ```
 
+If your CPU has more than one core, you can improve the test run time by using the `--parallel` option which, by default, creates one test worker per hardware thread provided by your CPU. You can also specify the number of workers to be spawned by passing a number to the parallel option (e.g. `--parallel 4`).
+
+```
+ospec --parallel
+```
+
 Finally, you may choose to load files or modules before any tests run (**note:** always add `--require` AFTER match patterns):
 
 ```
@@ -375,14 +381,12 @@ ospec --require esm
 Here's an example of mixing them all together:
 
 ```
-ospec '**/*.test.js' --ignore 'folder1/**' --require esm ./my-file.js
+ospec '**/*.test.js' --ignore 'folder1/**' --parallel 4 --require esm ./my-file.js
 ```
 
-#### For NodeJS v13+ only
+#### For NodeJS v13.2+ only
 
-You can use ospec to test an ES6 module without depending on the `esm` NPM package. Use the `--module` option.
-
-If your CPU has more than one core, you can improve the test run time by using the `--parallel` option which creates one test worker per hardware thread.
+You can use ospec to test ES6 modules without depending on the `esm` NPM package. Use the `--module` option.
 
 ### Run ospec directly from the command line:
 

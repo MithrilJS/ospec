@@ -28,17 +28,17 @@ const threadAPI = (() => {
 		const useModule = wd != null && wd.includes("--module")
 		return {
 			spawn(name, workerData) {
-				const w = new Worker(name, {workerData})
-				w.on("error", throwIt)
-				return w
+				const worker = new Worker(name, {workerData})
+				worker.on("error", throwIt)
+				return worker
 			},
 			// JSON.stringify()/.parse() is faster than the structured copy
 			// algorithm, especially for large objects. Also, postMessage
 			// seems not to like the results as they are handed by ospec.
 			// It hangs forever unless the objects are first copied
 			// manually.
-			sendMessage(worker, message) {
-				worker.postMessage(JSON.stringify(message))
+			sendMessage(target, message) {
+				target.postMessage(JSON.stringify(message))
 			},
 			decodeMessage(msg) {
 				return JSON.parse(msg)
@@ -55,18 +55,18 @@ const threadAPI = (() => {
 		const useModule = process.argv.includes("--module")
 		return {
 			spawn(name, args) {
-				const p = child_process.fork(name, args, {stdio: 'inherit'})
-				p.on("error", throwIt)
-				return p
+				const child = child_process.fork(name, args, {stdio: 'inherit'})
+				child.on("error", throwIt)
+				return child
 			},
-			sendMessage(_process, message) {
-				_process.send(message)
+			sendMessage(target, message) {
+				target.send(message)
 			},
 			decodeMessage(msg) {
 				return msg
 			},
-			terminate(_process) {
-				_process.kill('SIGTERM')
+			terminate(child) {
+				child.kill('SIGTERM')
 			},
 			parent: process,
 			useModule

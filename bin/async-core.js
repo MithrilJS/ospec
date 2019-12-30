@@ -33,7 +33,7 @@ module.exports = async function asyncCore({
 
 	if (dependencies) await Promise.all(
 		dependencies.filter((dep) => dep != null).map(
-			(module) => load(require.resolve(module, {paths: [cwd]}))
+			(dep) => load(require.resolve(dep, {paths: [cwd]}))
 		)
 	)
 
@@ -76,6 +76,8 @@ module.exports = async function asyncCore({
 
 	function workerTask(path, fulfill, worker) {
 		worker.once("message", (res) => {
+			// do the minimal amount of work while
+			// the worker is idling.
 			results[path] = res
 			next(workerTask, fulfill, worker)
 		})

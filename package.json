@@ -4,21 +4,24 @@
   "description": "Noiseless testing framework",
   "main": "ospec.js",
   "unpkg": "ospec.js",
-  "keywords": [ "testing" ],
+  "keywords": ["testing"],
   "author": "Leo Horie <leohorie@hotmail.com>",
   "license": "MIT",
-  "files": [ "ospec.js", "bin" ],
+  "files": ["ospec.js", "bin"],
   "bin": "./bin/ospec",
   "repository": "github:MithrilJS/ospec",
   "dependencies": {
     "glob": "^7.1.3"
   },
   "scripts": {
-    "test": "npm run test:normal && npm run test:require  && npm run test:parallel  && npm run test:module  && npm run test:module-parallel",
-    "test:normal": "node bin/ospec",
-    "test:require": "node bin/ospec --require ./var/extra.js",
+    "test": "npm run test:no-module && npm run test:module",
+    "test:legacy": "npm run test:legacy:normal && npm run test:legacy:require",
+    "test:no-module": "npm run test:legacy && npm run test:parallel",
+    "test:legacy:normal": "node bin/ospec",
+    "test:legacy:require": "node bin/ospec --require ./var/extra.js",
+    "test:module": "npm run test:module:serial && npm run test:module:parallel",
     "test:parallel": "node bin/ospec --parallel 2 --require ./var/extra.js",
-    "test:module": "node bin/ospec --module --require ./var/extra.js",
-    "test:module-parallel": "node bin/ospec --module --parallel --require ./var/extra.js"
+    "test:module:serial": "node bin/ospec --module --require ./var/extra.js",
+    "test:module:parallel": "node bin/ospec --module --parallel --require ./var/extra.js"
   }
 }

@@ -67,9 +67,9 @@ module.exports = async function asyncCore({
 				next(localTask, fulfill)
 			})
 		} catch(e) {
-			results.push({
+			results[path] = [{
 				pass: false, context: e.message, message: e.stack, error: e
-			})
+			}]
 			next(localTask, fulfill)
 		}
 	}

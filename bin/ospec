@@ -5,6 +5,18 @@ var o = require("../ospec")
 var path = require("path")
 var glob = require("glob")
 
+// eval is needed because`import()` is a syntax error in older
+// node.js versions (pre 13.2).
+
+const supportsImport = (()=>{ try {
+// eslint-disable-line no-eval
+ return !!eval("import('./non-existant-file').catch(()=>{})")
+} catch(_) {
+	return false
+}})()
+
+ // eslint-disable-line global-require no-eval
+const load = supportsImport ? (x) => eval("import(x)") : async (x) => require(x)
 
 function parseArgs(argv) {
 	argv = ["--globs"].concat(argv.slice(2))
@@ -34,12 +46,16 @@ if (args.require) {
 	})
 }
 
-var pending = globList.length
+var tasks = []
 globList.forEach(function(globPattern) {
 	glob(globPattern, {ignore: ignore})
-		.on("match", function(fileName) { require(path.join(cwd, fileName)) }) // eslint-disable-line global-require
+		.on("match", function(fileName) { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
+			o('error while loading ' + path.join(cwd, fileName), () => {
+				o(true).equals(false)(e.stack)
+			})
+		})) })
 		.on("error", function(e) { console.error(e) })
-		.on("end", function() { if (--pending === 0) o.run()})
+		.on("end", function() { Promise.all(tasks).then(() => o.run())})
 });
 
 process.on("unhandledRejection", function(e) { console.error("Uncaught (in promise) " + e.stack) })

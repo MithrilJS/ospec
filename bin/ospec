@@ -7,24 +7,27 @@ const glob = require("glob")
 
 // eval is needed because`import()` is a syntax error in older
 // node.js versions (pre 13.2).
-
-const supportsImport = (()=>{ try {
-// eslint-disable-line no-eval
- return !!eval("import('./non-existant-file').catch(()=>{})")
+const supportsImport = (() => { try {
+	// eslint-disable-next-line no-eval
+	return Boolean(eval("import('./non-existant-file').catch(()=>{})"))
 } catch(_) {
 	return false
 }})()
 
- // eslint-disable-line global-require no-eval
+// eslint-disable-next-line global-require, no-eval, no-unused-vars
 const load = supportsImport ? (x) => eval("import(x)") : async (x) => require(x)
 
 function parseArgs(argv) {
 	argv = ["--globs"].concat(argv.slice(2))
-	const args = {}
+	const args = {preload: []}
 	let name
 	argv.forEach((arg) => {
 		if ((/^--/).test(arg)) {
 			name = arg.substr(2)
+			if (name === "require") {
+				if (args.preload.length === 0) console.warn("The --require option has been renamed --preload")
+				name = "preload"
+			}
 			args[name] = args[name] || []
 		} else {
 			args[name].push(arg)
@@ -39,23 +42,21 @@ const globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.
 const ignore = ["**/node_modules/**"].concat(args.ignore || [])
 const cwd = process.cwd()
 
-if (args.require) {
-	args.require.forEach((module) => {
-		// eslint-disable-next-line global-require
-		if (module) require(require.resolve(module, {paths: [cwd]}))
-	})
-}
-
-const tasks = []
-globList.forEach((globPattern) => {
-	glob(globPattern, {ignore: ignore})
-		.on("match", (fileName) => { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
-			o('error while loading ' + path.join(cwd, fileName), () => {
-				o(true).equals(false)(e.stack)
-			})
-		})) })
-		.on("error", (e) => { console.error(e) })
-		.on("end", () => { Promise.all(tasks).then(() => o.run())})
-});
+// Errors while preloading will be caught by the "unhandledRejection" handler.
+Promise.all(args.preload.map(((mod) => load(mod)))).then(
+	() => {
+		const tasks = []
+		globList.forEach((globPattern) => {
+			glob(globPattern, {ignore: ignore})
+				.on("match", (fileName) => { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
+					o("error while loading " + path.join(cwd, fileName), () => {
+						o(true).equals(false)(e.stack)
+					})
+				})) })
+				.on("error", (e) => { console.error(e) })
+				.on("end", () => { Promise.all(tasks).then(() => o.run())})
+		})
+	}
+)
 
 process.on("unhandledRejection", (e) => { console.error("Uncaught (in promise) " + e.stack) })

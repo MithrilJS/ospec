@@ -679,7 +679,7 @@ o.spec("ospec", function() {
 			})
 			oo.run(function(results) {
 				o(results.length).equals(2)
-				o(results[1].message).equals('howdy\n\n'+results[0].message)
+				o(results[1].message).equals("howdy\n\n"+results[0].message)
 				o(results[1].pass).equals(false)
 				done()
 			})

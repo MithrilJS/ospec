@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 "use strict"
 
-var o = require("../ospec")
-var path = require("path")
-var glob = require("glob")
+const o = require("../ospec")
+const path = require("path")
+const glob = require("glob")
 
 // eval is needed because`import()` is a syntax error in older
 // node.js versions (pre 13.2).
@@ -20,9 +20,9 @@ const load = supportsImport ? (x) => eval("import(x)") : async (x) => require(x)
 
 function parseArgs(argv) {
 	argv = ["--globs"].concat(argv.slice(2))
-	var args = {}
-	var name
-	argv.forEach(function(arg) {
+	const args = {}
+	let name
+	argv.forEach((arg) => {
 		if ((/^--/).test(arg)) {
 			name = arg.substr(2)
 			args[name] = args[name] || []
@@ -34,28 +34,28 @@ function parseArgs(argv) {
 }
 
 
-var args = parseArgs(process.argv)
-var globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.js"]
-var ignore = ["**/node_modules/**"].concat(args.ignore || [])
-var cwd = process.cwd()
+const args = parseArgs(process.argv)
+const globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.js"]
+const ignore = ["**/node_modules/**"].concat(args.ignore || [])
+const cwd = process.cwd()
 
 if (args.require) {
-	args.require.forEach(function(module) {
+	args.require.forEach((module) => {
 		// eslint-disable-next-line global-require
 		if (module) require(require.resolve(module, {paths: [cwd]}))
 	})
 }
 
-var tasks = []
-globList.forEach(function(globPattern) {
+const tasks = []
+globList.forEach((globPattern) => {
 	glob(globPattern, {ignore: ignore})
-		.on("match", function(fileName) { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
+		.on("match", (fileName) => { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
 			o('error while loading ' + path.join(cwd, fileName), () => {
 				o(true).equals(false)(e.stack)
 			})
 		})) })
-		.on("error", function(e) { console.error(e) })
-		.on("end", function() { Promise.all(tasks).then(() => o.run())})
+		.on("error", (e) => { console.error(e) })
+		.on("end", () => { Promise.all(tasks).then(() => o.run())})
 });
 
-process.on("unhandledRejection", function(e) { console.error("Uncaught (in promise) " + e.stack) })
+process.on("unhandledRejection", (e) => { console.error("Uncaught (in promise) " + e.stack) })

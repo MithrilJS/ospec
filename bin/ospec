@@ -25,7 +25,10 @@ function parseArgs(argv) {
 		if ((/^--/).test(arg)) {
 			name = arg.substr(2)
 			if (name === "require") {
-				if (args.preload.length === 0) console.warn("The --require option has been renamed --preload")
+				if (args.require == null) console.warn(
+					"/!\\ The --require option has been deprecated, use --preload instead"
+				)
+				args.require = true
 				name = "preload"
 			}
 			args[name] = args[name] || []

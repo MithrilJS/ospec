@@ -14,6 +14,9 @@
 
 ### Upcoming...
 - Fix another corner case with the done parser [#16](https://github.com/MithrilJS/ospec/pull/2) [@kfule](https://github.com/kfule)
+- Add native ES6 module support for recent Node.js versions.
+- deprecate `--require` and intrduce `--preload` since it can not load both CommonJS packages or ES6 modules (`--require` is still supported with a warning for easing the transition).
+all the things inclding bin/ospec.
 - Fix arrow functions (`(done) => { }`) support in asynchronous tests. ([#2](https://github.com/MithrilJS/ospec/pull/2) [@kesara](https://github.com/kesara))
 
 ### 4.0.1

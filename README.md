@@ -366,17 +366,21 @@ You can also provide ignore patterns (note: always add `--ignore` AFTER match pa
 ospec --ignore 'folder1/**' 'folder2/**'
 ```
 
-Finally, you may choose to load files or modules before any tests run (**note:** always add `--require` AFTER match patterns):
+Finally, you may choose to load files or modules before any tests run (**note:** always add `--preload` AFTER match patterns):
 
 ```
-ospec --require esm
+ospec --preload esm
 ```
 
 Here's an example of mixing them all together:
 
 ```
-ospec '**/*.test.js' --ignore 'folder1/**' --require esm ./my-file.js
+ospec '**/*.test.js' --ignore 'folder1/**' --preload esm ./my-file.js
 ```
+
+### native mjs and module support
+
+For Node.js versions >= 13.2, `ospec` supports both ES6 modules and CommonJS packages out of the box. `--preload esm` is thus not needed in that case.
 
 ### Run ospec directly from the command line:
 

@@ -6,6 +6,9 @@ module.exports = {
         "node": true
 	},
     "extends": "eslint:recommended",
+    "parserOptions": {
+        "ecmaVersion": 2017
+    },
     "rules": {
         "accessor-pairs": "error",
         "array-bracket-spacing": [

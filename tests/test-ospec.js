@@ -697,7 +697,7 @@ o.spec("the done parser", function() {
 		try {oo.run(function(){})} catch(e) {threw = true}
 		o(threw).equals(false)
 	})
-	o("tolerates comments", function() {
+	o("tolerates comments with an ES5 function expression and a timeoout parameter", function() {
 		var oo = o.new()
 		var threw = false
 		oo("test", function(/*hey
@@ -710,6 +710,20 @@ o.spec("the done parser", function() {
 			oo(true).equals(true)
 			done()
 		})
+		try {oo.run(function(){})} catch(e) {threw = true}
+		o(threw).equals(false)
+	})
+	o("tolerates comments with an ES5 function expression and no timeoout parameter, unix-style line endings", function() {
+		var oo = o.new()
+		var threw = false
+		oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {timeout(5);oo(true).equals(true);done()})"))
+		try {oo.run(function(){})} catch(e) {threw = true}
+		o(threw).equals(false)
+	})
+	o("tolerates comments with an ES5 function expression and no timeoout parameter, windows-style line endings", function() {
+		var oo = o.new()
+		var threw = false
+		oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {timeout(5);oo(true).equals(true);done()})"))
 		try {oo.run(function(){})} catch(e) {threw = true}
 		o(threw).equals(false)
 	})
@@ -770,6 +784,56 @@ o.spec("the done parser", function() {
 			oo(
 				"comments won't throw the parser off",
 				eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
+			)
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(false)
+		})
+		o("isn't fooled by comments (no parens)", function(){
+			var oo = o.new()
+			var threw = false
+			oo(
+				"comments won't throw the parser off",
+				eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
+			)
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(false)
+		})
+		o("isn't fooled by comments (with parens, no timeout, unix-style line endings)", function(){
+			var oo = o.new()
+			var threw = false
+			oo(
+				"comments won't throw the parser off",
+				eval("(done /*hey*/ //ho \n/**/) => {oo(threw).equals(false);done()}")
+			)
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(false)
+		})
+		o("isn't fooled by comments (with parens, no timeout, windows-style line endings)", function(){
+			var oo = o.new()
+			var threw = false
+			oo(
+				"comments won't throw the parser off",
+				eval("(done /*hey*/ //ho \r\n/**/) => {oo(threw).equals(false);done()}")
+			)
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(false)
+		})
+		o("isn't fooled by comments (with parens, with timeout, unix-style line endings)", function(){
+			var oo = o.new()
+			var threw = false
+			oo(
+				"comments won't throw the parser off",
+				eval("(done /*hey*/ //ho \n/**/, timeout) => {oo(threw).equals(false);done()}")
+			)
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(false)
+		})
+		o("isn't fooled by comments (with parens, with timeout, windows-style line endings)", function(){
+			var oo = o.new()
+			var threw = false
+			oo(
+				"comments won't throw the parser off",
+				eval("(done /*hey*/ //ho \r\n/**/, timeout) => {oo(threw).equals(false);done()}")
 			)
 			try {oo.run(function(){})} catch(e) {threw = true}
 			o(threw).equals(false)

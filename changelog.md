@@ -13,6 +13,7 @@
 - [1.3 and earlier](#13-and-earlier)
 
 ### Upcoming...
+- Fix another corner case with the done parser [#16](https://github.com/MithrilJS/ospec/pull/2) [@kfule](https://github.com/kfule)
 - Fix arrow functions (`(done) => { }`) support in asynchronous tests. ([#2](https://github.com/MithrilJS/ospec/pull/2) [@kesara](https://github.com/kesara))
 
 ### 4.0.1

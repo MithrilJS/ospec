@@ -713,6 +713,7 @@ o.spec("the done parser", function() {
 		try {oo.run(function(){})} catch(e) {threw = true}
 		o(threw).equals(false)
 	})
+	/*eslint-disable no-eval*/
 	o("tolerates comments with an ES5 function expression and no timeoout parameter, unix-style line endings", function() {
 		var oo = o.new()
 		var threw = false
@@ -727,7 +728,6 @@ o.spec("the done parser", function() {
 		try {oo.run(function(){})} catch(e) {threw = true}
 		o(threw).equals(false)
 	})
-	/*eslint-disable no-eval*/
 	try {eval("(()=>{})()"); o.spec("with ES6 arrow functions", function() {
 		function getCommentContent(f) {
 			f = f.toString()
@@ -745,7 +745,7 @@ o.spec("the done parser", function() {
 					}
 				)
 			*/}))
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
 			o(threw).equals(false)
 		})
 		o("has no false positives 2", function(){
@@ -777,6 +777,51 @@ o.spec("the done parser", function() {
 			*/}))
 			try {oo.run(function(){})} catch(e) {threw = true}
 			o(threw).equals(true)
+		})
+		o("has no false negatives 2", function(){
+			var oo = o.new()
+			var threw = false
+			eval(getCommentContent(function(){/*
+				oo(
+					"Multiple references to the wrong thing doesn't fool the checker",
+					(done) => {
+						oo(threw).equals(false)
+						oo(threw).equals(false)
+					}
+				)
+			*/}))
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(true)
+		})
+		o("has no false negatives 3", function(){
+			var oo = o.new()
+			var threw = false
+			eval(getCommentContent(function(){/*
+				oo(
+					"Multiple references to the wrong thing doesn't fool the checker",
+					(done)=>{
+						oo(threw).equals(false)
+						oo(threw).equals(false)
+					}
+				)
+			*/}))
+			try {oo.run(function(){})} catch(e) {threw = true}
+			o(threw).equals(true)
+		})
+		o("works with a literal that has parentheses but no spaces", function(){
+			var oo = o.new()
+			var threw = false
+			eval(getCommentContent(function(){/*
+				oo(
+					"Multiple references to the wrong thing doesn't fool the checker",
+					(done)=>{
+						oo(threw).equals(false)
+						done()
+					}
+				)
+			*/}))
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
+			o(threw).equals(false)
 		})
 		o("isn't fooled by comments", function(){
 			var oo = o.new()

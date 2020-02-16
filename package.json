@@ -19,7 +19,9 @@
     "glob": "^7.1.3"
   },
   "scripts": {
-    "test": "bin/ospec",
+    "test": "ospec tests/test-*.js",
+    "test-api": "ospec tests/test-api.js",
+    "test-cli": "ospec tests/test-cli.js",
     "lint": "eslint . bin/ospec"
   },
   "devDependencies": {

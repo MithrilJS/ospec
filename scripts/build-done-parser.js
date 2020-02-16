@@ -1,7 +1,6 @@
 "use strict"
 
-const {sequence, either, suffix, capture, avoid} = require("compose-regexp")
-const oneOrMore = suffix("+")
+const {sequence, either, suffix, capture} = require("compose-regexp")
 const zeroOrMore = suffix("*")
 const maybe = suffix("?")
 
@@ -41,13 +40,11 @@ console.log("without comments: ", sequence(/^/, prologue(/ */), capture(argName)
 // ------------------------------------------------------------ //
 // tests and output if all green
 
-const o = require('ospec')
+const o = require("ospec")
 
 const test = (input) => (doneMatcher.exec(input)||[]).pop()
 
 o("done parser", () => {
-	let match;
-
 	o(
 		test("function(done)")
 	).equals("done")
@@ -157,19 +154,19 @@ o("done parser", () => {
 	).equals("done")
 
 	o(
-		test(`( done ) => `)
+		test("( done ) => ")
 	).equals("done")
 
 	o(
-		test(`( done/**/, define) => `)
+		test("( done/**/, define) => ")
 	).equals("done")
 
 	o(
-		test(`( done, define) => `)
+		test("( done, define) => ")
 	).equals("done")
 
 	o(
-		test(`( done , define) => `)
+		test("( done , define) => ")
 	).equals("done")
 
 	o(
@@ -178,7 +175,7 @@ o("done parser", () => {
 				*/done//more comment
 				/* and then some
 				*/) => `
-			)
+		)
 	).equals("done")
 
 	o(
@@ -202,15 +199,15 @@ o("done parser", () => {
 	).equals("done")
 
 	o(
-		test('function$dada =>')
-	).equals('function$dada')
+		test("function$dada =>")
+	).equals("function$dada")
 
 	o(
-		test('(function$dada) =>')
-	).equals('function$dada')
+		test("(function$dada) =>")
+	).equals("function$dada")
 	o(
-		test('function(function$dada) {')
-	).equals('function$dada')
+		test("function(function$dada) {")
+	).equals("function$dada")
 })
 
 o.run((results) => {

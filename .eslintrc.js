@@ -1,4 +1,18 @@
 module.exports = {
+    "overrides": [
+        {
+            "files": ["ospec.js", "tests/test-api.js"],
+            "parserOptions": {
+                "ecmaVersion": 5
+            }
+        },
+        {
+            "files": ["tests/fixtures/**/esm/**/*.js"],
+            "parserOptions" : {
+                "sourceType": "module"
+            }
+        }
+    ],
     "env": {
         "browser": true,
         "commonjs": true,
@@ -7,7 +21,7 @@ module.exports = {
 	},
     "extends": "eslint:recommended",
     "parserOptions": {
-        "ecmaVersion": 2017
+        "ecmaVersion": 2018
     },
     "rules": {
         "accessor-pairs": "error",

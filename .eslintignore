@@ -3,8 +3,11 @@
 /jsconfig.json
 /npm-debug.log
 /.vscode
-/.DS_Store
+/**/.DS_Store
 /.eslintcache
+
+# Ignore this until we find a way to lint them properly
+tests/fixtures/**/esm/**/*.js
 
 # These are artifacts from various scripts
 /dist

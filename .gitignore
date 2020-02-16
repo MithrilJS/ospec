@@ -1,11 +1,12 @@
 /coverage
-/node_modules
+/**/node_modules
 /jsconfig.json
 /npm-debug.log
 /.vscode
 /.DS_Store
 /.eslintcache
-
+/tests/**/package-lock.json
 # These are artifacts from various scripts
 /dist
 /archive
+

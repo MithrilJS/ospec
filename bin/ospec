@@ -46,18 +46,21 @@ const ignore = ["**/node_modules/**"].concat(args.ignore || [])
 const cwd = process.cwd()
 
 // Errors while preloading will be caught by the "unhandledRejection" handler.
-Promise.all(args.preload.map(((mod) => load(mod)))).then(
+Promise.all(args.preload.map(((mod) => load(path.join(cwd, mod))))).then(
 	() => {
+		let remaining = globList.length
+		console.log({globList, ignore})
 		const tasks = []
 		globList.forEach((globPattern) => {
 			glob(globPattern, {ignore: ignore})
 				.on("match", (fileName) => { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
+					console.error(e)
 					o("error while loading " + path.join(cwd, fileName), () => {
 						o(true).equals(false)(e.stack)
 					})
-				})) })
+				}))})
 				.on("error", (e) => { console.error(e) })
-				.on("end", () => { Promise.all(tasks).then(() => o.run())})
+				.on("end", () => { if (--remaining === 0) Promise.all(tasks).then(() => o.run()) })
 		})
 	}
 )

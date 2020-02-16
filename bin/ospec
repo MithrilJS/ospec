@@ -26,7 +26,7 @@ function parseArgs(argv) {
 			name = arg.substr(2)
 			if (name === "require") {
 				if (args.require == null) console.warn(
-					"/!\\ The --require option has been deprecated, use --preload instead"
+					"Warning: The --require option has been deprecated, use --preload instead"
 				)
 				args.require = true
 				name = "preload"
@@ -45,8 +45,15 @@ const globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.
 const ignore = ["**/node_modules/**"].concat(args.ignore || [])
 const cwd = process.cwd()
 
-// Errors while preloading will be caught by the "unhandledRejection" handler.
-Promise.all(args.preload.map(((mod) => load(path.join(cwd, mod))))).then(
+// Ensure a p
+Promise.all(args.preload.map(
+	(mod) => load(path.join(cwd, mod)).catch((e) => {
+		console.error(`could not preload ${mod}`)
+		console.error(e)
+		// eslint-disable-next-line no-process-exit
+		process.exit(1)
+	})
+)).then(
 	() => {
 		let remaining = globList.length
 		console.log({globList, ignore})

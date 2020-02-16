@@ -2,16 +2,40 @@
 
 // So it can load correctly in browsers using a global instance.
 var o
+var lib
 var callAsync = typeof setImmediate === "function" ? setImmediate : setTimeout
+function stringify(x) {
+	return JSON.stringify(x, null, 2)
+}
 
 if (typeof require !== "undefined") {
 	/* eslint-disable global-require */
-	o = require("../ospec")
+	o = lib = require("../ospec")
+	o = require("ospec")
 	/* eslint-enable global-require */
 } else {
-	o = window.o
+	o = lib = window.o
 }
 
+o("API", function() {
+	// the rest of the suite only tests instances created with o.new()
+	// make sure that the main exported object also exposes the API
+	o(typeof lib).equals("function")
+
+	o(typeof lib.after).equals("function")
+	o(typeof lib.afterEach).equals("function")
+	o(typeof lib.before).equals("function")
+	o(typeof lib.beforeEach).equals("function")
+	o(typeof lib.cleanStackTrace).equals("function")
+	o(typeof lib.new).equals("function")
+	o(typeof lib.only).equals("function")
+	o(typeof lib.report).equals("function")
+	o(typeof lib.run).equals("function")
+	o(typeof lib.spec).equals("function")
+	o(typeof lib.specTimeout).equals("function")
+	o(typeof lib.spy).equals("function")
+	o(typeof lib.timeout).equals("function")
+})
 // this throws an async error that can't be caught in browsers
 if (typeof process !== "undefined") {
 	o("incomplete assertion", function(done) {
@@ -23,7 +47,7 @@ if (typeof process !== "undefined") {
 			var name = matches[1]
 			var num = Number(matches[2])
 		}
-		var oo = o.new()
+		var oo = lib.new()
 		oo("test", function() {
 			oo("incomplete")
 		})
@@ -31,7 +55,7 @@ if (typeof process !== "undefined") {
 			o(results.length).equals(1)
 			o(results[0].message).equals("Incomplete assertion in the test definition starting at...")
 			o(results[0].pass).equals(null)
-			var stack = o.cleanStackTrace(results[0].testError)
+			var stack = oo.cleanStackTrace(results[0].testError)
 			var matches2 = stack && stack.match(stackMatcher)
 			if (matches != null && matches2 != null) {
 				o(matches[1]).equals(name)
@@ -43,7 +67,7 @@ if (typeof process !== "undefined") {
 }
 
 o("o.only", function(done) {
-	var oo = o.new()
+	var oo = lib.new()
 
 	oo.spec("won't run", function() {
 		oo("nope, skipped", function() {
@@ -76,7 +100,7 @@ o("o.only", function(done) {
 o.spec("reporting", function() {
 	var oo
 	o.beforeEach(function(){
-		oo = o.new()
+		oo = lib.new()
 
 		oo.spec("clone", function() {
 			oo("fail", function() {
@@ -112,13 +136,13 @@ o.spec("reporting", function() {
 
 		function makeError(msg) {try{throw msg ? new Error(msg) : new Error} catch(e){return e}}
 		try {
-			var errCount = o.report([{pass: true}, {pass: true}])
+			var errCount = oo.report([{pass: true}, {pass: true}])
 
 			o(errCount).equals(0)
 			o(console.log.callCount).equals(1)
 			o(console.error.callCount).equals(0)
 
-			errCount = o.report([
+			errCount = oo.report([
 				{pass: false, error: makeError("hey"), message: "hey"}
 			])
 
@@ -126,7 +150,7 @@ o.spec("reporting", function() {
 			o(console.log.callCount).equals(2)
 			o(console.error.callCount).equals(1)
 
-			errCount = o.report([
+			errCount = oo.report([
 				{pass: false, error: makeError("hey"), message: "hey"},
 				{pass: true},
 				{pass: false, error: makeError("ho"), message: "ho"}
@@ -136,7 +160,7 @@ o.spec("reporting", function() {
 			o(console.log.callCount).equals(3)
 			o(console.error.callCount).equals(3)
 		} catch (e) {
-			o(1).equals(0)("Error while testing the reporter")
+			o(1).equals(0)("Error while testing the reporter " + e.stack)
 		}
 
 		console.log = log
@@ -146,8 +170,7 @@ o.spec("reporting", function() {
 
 o.spec("ospec", function() {
 	o.spec("sync", function() {
-		var a = 0, b = 0, illegalAssertionThrows = false
-		var reservedTestNameTrows = false
+		var a = 0, b = 0
 
 		o.before(function() {a = 1})
 		o.after(function() {a = 0})
@@ -155,79 +178,92 @@ o.spec("ospec", function() {
 		o.beforeEach(function() {b = 1})
 		o.afterEach(function() {b = 0})
 
-		try {o("illegal assertion")} catch (e) {illegalAssertionThrows = true}
-		try {o("\x01reserved test name", function(){})} catch (e) {reservedTestNameTrows = true}
 
-		o("assertions", function() {
+		o("assertions", function(done) {
+			var reservedTestNameTrows = false
+			var illegalAssertionThrows = false
 			var nestedTestDeclarationThrows = false
-			try {o("illegal nested test", function(){})} catch (e) {nestedTestDeclarationThrows = true}
-
-			o(illegalAssertionThrows).equals(true)
-			o(nestedTestDeclarationThrows).equals(true)
-			o(reservedTestNameTrows).equals(true)
 
 			var spy = o.spy()
 			spy(a)
 
-			o(a).equals(b)
-			o(a).notEquals(2)
-			o({a: [1, 2], b: 3}).deepEquals({a: [1, 2], b: 3})
-			o([{a: 1, b: 2}, {c: 3}]).deepEquals([{a: 1, b: 2}, {c: 3}])
-			o(function(){throw new Error()}).throws(Error)
-			o(function(){"ayy".foo()}).throws(TypeError)
-			o(function(){Math.PI.toFixed(Math.pow(10,20))}).throws(RangeError)
-			o(function(){decodeURIComponent("%")}).throws(URIError)
+			var oo = lib.new()
 
-			o(function(){"ayy".foo()}).notThrows(SyntaxError)
-			o(function(){throw new Error("foo")}).throws("foo")
-			o(function(){throw new Error("foo")}).notThrows("bar")
+			try {oo("illegal assertion")} catch (e) {illegalAssertionThrows = true}
+			try {oo("\x01reserved test name", function(){})} catch (e) {reservedTestNameTrows = true}
 
-			var undef1 = {undef: void 0}
-			var undef2 = {UNDEF: void 0}
-
-			o(undef1).notDeepEquals(undef2)
-			o(undef1).notDeepEquals({})
-			o({}).notDeepEquals(undef1)
-
-			var sparse1 = [void 1, void 2, void 3]
-			delete sparse1[0]
-			var sparse2 = [void 1, void 2, void 3]
-			delete sparse2[1]
-
-			o(sparse1).notDeepEquals(sparse2)
-
-			var monkeypatch1 = [1, 2]
-			monkeypatch1.field = 3
-			var monkeypatch2 = [1, 2]
-			monkeypatch2.field = 4
-
-			o(monkeypatch1).notDeepEquals([1, 2])
-			o(monkeypatch1).notDeepEquals(monkeypatch2)
-
-			monkeypatch2.field = 3
-			o(monkeypatch1).deepEquals(monkeypatch2)
-
-			monkeypatch1.undef = undefined
-			monkeypatch2.UNDEF = undefined
-
-			o(monkeypatch1).notDeepEquals(monkeypatch2)
-
-			var values = ["a", "", 1, 0, true, false, null, undefined, Date(0), ["a"], [], function() {return arguments}.call(), new Uint8Array(), {a: 1}, {}]
-			for (var i = 0; i < values.length; i++) {
-				for (var j = 0; j < values.length; j++) {
-					if (i === j) o(values[i]).deepEquals(values[j])
-					else o(values[i]).notDeepEquals(values[j])
+			oo("test", function() {
+				try {oo("illegal nested test", function(){})} catch (e) {nestedTestDeclarationThrows = true}
+				oo(a).equals(b)
+				oo(a).notEquals(2)
+				oo({a: [1, 2], b: 3}).deepEquals({a: [1, 2], b: 3})
+				oo([{a: 1, b: 2}, {c: 3}]).deepEquals([{a: 1, b: 2}, {c: 3}])
+				oo(function(){throw new Error()}).throws(Error)
+				oo(function(){"ayy".foo()}).throws(TypeError)
+				oo(function(){Math.PI.toFixed(Math.pow(10,20))}).throws(RangeError)
+				oo(function(){decodeURIComponent("%")}).throws(URIError)
+	
+				oo(function(){"ayy".foo()}).notThrows(SyntaxError)
+				oo(function(){throw new Error("foo")}).throws("foo")
+				oo(function(){throw new Error("foo")}).notThrows("bar")
+	
+				var undef1 = {undef: void 0}
+				var undef2 = {UNDEF: void 0}
+	
+				oo(undef1).notDeepEquals(undef2)
+				oo(undef1).notDeepEquals({})
+				oo({}).notDeepEquals(undef1)
+	
+				var sparse1 = [void 1, void 2, void 3]
+				delete sparse1[0]
+				var sparse2 = [void 1, void 2, void 3]
+				delete sparse2[1]
+	
+				oo(sparse1).notDeepEquals(sparse2)
+	
+				var monkeypatch1 = [1, 2]
+				monkeypatch1.field = 3
+				var monkeypatch2 = [1, 2]
+				monkeypatch2.field = 4
+	
+				oo(monkeypatch1).notDeepEquals([1, 2])
+				oo(monkeypatch1).notDeepEquals(monkeypatch2)
+	
+				monkeypatch2.field = 3
+				oo(monkeypatch1).deepEquals(monkeypatch2)
+	
+				monkeypatch1.undef = undefined
+				monkeypatch2.UNDEF = undefined
+	
+				oo(monkeypatch1).notDeepEquals(monkeypatch2)
+	
+				var values = ["a", "", 1, 0, true, false, null, undefined, Date(0), ["a"], [], function() {return arguments}.call(), new Uint8Array(), {a: 1}, {}]
+				for (var i = 0; i < values.length; i++) {
+					for (var j = 0; j < values.length; j++) {
+						if (i === j) oo(values[i]).deepEquals(values[j])
+						else oo(values[i]).notDeepEquals(values[j])
+					}
 				}
-			}
+			})
 
-			o(spy.callCount).equals(1)
-			o(spy.args.length).equals(1)
-			o(spy.args[0]).equals(1)
-			o(spy.calls.length).equals(1)
-			o(spy.calls[0]).deepEquals({this: undefined, args: [1]})
+			oo.run(function(results) {
+				results.forEach(function(result) {
+					o(result.pass).equals(true)(stringify(result))
+				})
+				o(illegalAssertionThrows).equals(true)
+				o(nestedTestDeclarationThrows).equals(true)
+				o(reservedTestNameTrows).equals(true)
+				o(spy.callCount).equals(1)
+				o(spy.args.length).equals(1)
+				o(spy.args[0]).equals(1)
+				o(spy.calls.length).equals(1)
+				o(spy.calls[0]).deepEquals({this: undefined, args: [1]})
+				done()
+			})
 		})
 		o("spy wrapping", function() {
-			var spy = o.spy(function view(vnode){
+			var oo = lib.new()
+			var spy = oo.spy(function view(vnode){
 				this.drawn = true
 
 				return {tag: "div", children: vnode.children}
@@ -248,41 +284,44 @@ o.spec("ospec", function() {
 			o(output).deepEquals({tag: "div", children: children})
 		})
 	})
-	o.spec("async callback", function() {
+	o("async callback", function(finished) {
 		var a = 0, b = 0
-		o.after(function() {
+
+		var oo = lib.new()
+
+		oo.after(function() {
 			o(a).equals(0)
 			o(b).equals(0)
 		})
-		o.spec("", function(){
-			o.before(function(done) {
+		oo.spec("dummy spec", function(){
+			oo.before(function(done) {
 				callAsync(function() {
 					a = 1
 					done()
 				})
 			})
-			o.after(function(done) {
+			oo.after(function(done) {
 				callAsync(function() {
 					a = 0
 					done()
 				})
 			})
 
-			o.beforeEach(function(done) {
+			oo.beforeEach(function(done) {
 				o(b).equals(0)
 				callAsync(function() {
 					b = 1
 					done()
 				})
 			})
-			o.afterEach(function(done) {
+			oo.afterEach(function(done) {
 				callAsync(function() {
 					b = 0
 					done()
 				})
 			})
 
-			o("hooks work as intended the first time", function(done) {
+			oo("hooks work as intended the first time", function(done) {
 				callAsync(function() {
 					var spy = o.spy()
 					spy(a)
@@ -293,7 +332,7 @@ o.spec("ospec", function() {
 					done()
 				})
 			})
-			o("hooks work as intended the second time", function(done) {
+			oo("hooks work as intended the second time", function(done) {
 				callAsync(function() {
 					var spy = o.spy()
 					spy(a)
@@ -303,13 +342,25 @@ o.spec("ospec", function() {
 
 					done()
 				})
+			})
+
+			oo.run(function(results) {
+				// every done() call generates an assertion.
+				// 1 times for before, after and each of the two tests
+				// 2 times for beforeEach and afterEach
+				// (1 x 4) + (2 x 2) = 8
+				o(results.length).equals(8)
+				results.forEach(function(result) {
+					o(result.pass).equals(true)(stringify(result))
+				})
+				finished()
 			})
 		})
 	})
 
 	o.spec("throwing in test context is recorded as a failure", function() {
 		var oo
-		o.beforeEach(function(){oo = o.new()})
+		o.beforeEach(function(){oo = lib.new()})
 		o.afterEach(function() {
 			oo.run(function(results) {
 				o(results.length).equals(1)
@@ -329,7 +380,7 @@ o.spec("ospec", function() {
 
 	o.spec("timeout", function () {
 		o("when using done()", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var err
 			// the success of this test is dependent on having the
 			// oo() call three linew below this one
@@ -337,8 +388,9 @@ o.spec("ospec", function() {
 			if (err.stack) {
 				var line = Number(err.stack.match(/:(\d+):/)[1])
 				oo("", function(oodone, timeout) {
-					// oodone() keep this line for now
 					timeout(1)
+					// eslint-disable-next-line no-constant-condition
+					if (false) oodone()
 				})
 				oo.run((function(results) {
 					o(results.length).equals(1)
@@ -346,7 +398,7 @@ o.spec("ospec", function() {
 					// todo test cleaned up results[0].error stack trace for the presence
 					// of the timeout stack entry
 					o(results[0].testError instanceof Error).equals(true)
-					o(o.cleanStackTrace(results[0].testError).indexOf("test-ospec.js:" + (line + 3) + ":")).notEquals(-1)
+					o(oo.cleanStackTrace(results[0].testError).indexOf("test-ospec.js:" + (line + 3) + ":")).notEquals(-1)
 
 					done()
 				}))
@@ -355,10 +407,10 @@ o.spec("ospec", function() {
 			}
 		})
 		o("when using a thenable", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var err
-			// the success of this test is dependent on having the
-			// oo() call three linew below this one
+			// /!\ the success of this test is dependent on having the /!\
+			// oo() call three lines below this one
 			try {throw new Error} catch(e) {err = e}
 			if (err.stack) {
 				var line = Number(err.stack.match(/:(\d+):/)[1])
@@ -370,7 +422,7 @@ o.spec("ospec", function() {
 					o(results.length).equals(1)
 					o(results[0].pass).equals(false)
 					o(results[0].testError instanceof Error).equals(true)
-					o(o.cleanStackTrace(results[0].testError).indexOf("test-ospec.js:" + (line + 3) + ":")).notEquals(-1)
+					o(oo.cleanStackTrace(results[0].testError).indexOf("test-ospec.js:" + (line + 3) + ":")).notEquals(-1)
 
 					done()
 				}))
@@ -381,7 +433,7 @@ o.spec("ospec", function() {
 	})
 	o.spec("o.timeout", function() {
 		o("throws when called out of test definitions", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var count = 0
 			try { oo.timeout(1) } catch (e) { count++ }
 			oo.spec("a spec", function() {
@@ -391,20 +443,24 @@ o.spec("ospec", function() {
 				oo.timeout(30)
 				return {then: function(f) {setTimeout(f)}}
 			})
-			oo.run(function(){
+			oo.run(function(result) {
+				o(result.length).equals(1)
+				o(result[0].pass).equals(true)
 				o(count).equals(2)
 
 				done()
 			})
 		})
 		o("works", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var t = new Date
 			oo("", function() {
 				oo.timeout(10)
 				return {then: function() {}}
 			})
-			oo.run(function(){
+			oo.run(function(results){
+				o(results.length).equals(1)
+				o(results[0].pass).equals(false)
 				o(new Date - t >= 10).equals(true)
 				o(200 > new Date - t).equals(true)
 
@@ -415,19 +471,21 @@ o.spec("ospec", function() {
 	o.spec("o.specTimeout", function() {
 		o("throws when called inside of test definitions", function(done) {
 			var err
-			var oo = o.new()
+			var oo = lib.new()
 			oo("", function() {
 				try { oo.specTimeout(5) } catch (e) {err = e}
 				return {then: function(f) {setTimeout(f)}}
 			})
-			oo.run(function(){
+			oo.run(function(result) {
+				o(result.length).equals(1)
+				o(result[0].pass).equals(true)
 				o(err instanceof Error).equals(true)
 
 				done()
 			})
 		})
 		o("works", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var t
 
 			oo.specTimeout(10)
@@ -454,7 +512,7 @@ o.spec("ospec", function() {
 			})
 		})
 		o("The parent and sibling suites are not affected by the specTimeout", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var t
 
 			oo.specTimeout(50)
@@ -496,7 +554,7 @@ o.spec("ospec", function() {
 			})
 		})
 		o("nested suites inherit the specTimeout", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 
 			oo.specTimeout(50)
 			oo.spec("nested", function () {
@@ -530,7 +588,7 @@ o.spec("ospec", function() {
 
 	o.spec("calling done() twice throws", function () {
 		o("two successes", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var err = null
 			oo("foo", function(oodone) {
 				try {
@@ -549,7 +607,7 @@ o.spec("ospec", function() {
 			})
 		})
 		o("a success followed by an error", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var err = null
 			oo("foo", function(oodone) {
 				try {
@@ -568,7 +626,7 @@ o.spec("ospec", function() {
 			})
 		})
 		o("two errors", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var err = null
 			oo("foo", function(oodone) {
 				try {
@@ -588,7 +646,7 @@ o.spec("ospec", function() {
 			})
 		})
 		o("an error followed by a success", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			var err = null
 			oo("foo", function(oodone) {
 				try {
@@ -611,18 +669,20 @@ o.spec("ospec", function() {
 
 	o.spec("stack trace cleaner", function() {
 		o("handles line breaks", function() {
+			var oo = lib.new()
 			try {
 				throw new Error("line\nbreak")
 			} catch(error) {
-				var trace = o.cleanStackTrace(error)
+				var trace = oo.cleanStackTrace(error)
 				o(trace).notEquals("break")
 				o(trace.indexOf("test-ospec.js") !== -1).equals(true)
 			}
 		})
 	})
 
-	o.spec("async promise", function() {
-		var a = 0, b = 0
+	if (typeof Promise === "function") o("async promise", function(done) {
+		var a = 0, b = 0, ran = false
+		var oo = lib.new()
 
 		function wrapPromise(fn) {
 			return new Promise(function (resolve, reject) {
@@ -637,40 +697,48 @@ o.spec("ospec", function() {
 			})
 		}
 
-		o.before(function() {
+		oo.before(function() {
 			return wrapPromise(function () {
 				a = 1
 			})
 		})
 
-		o.after(function() {
+		oo.after(function() {
 			return wrapPromise(function() {
 				a = 0
 			})
 		})
 
-		o.beforeEach(function() {
+		oo.beforeEach(function() {
 			return wrapPromise(function() {
 				b = 1
 			})
 		})
-		o.afterEach(function() {
+		oo.afterEach(function() {
 			return wrapPromise(function() {
 				b = 0
 			})
 		})
 
-		o("promise functions", function() {
+		oo("promise functions", function() {
 			return wrapPromise(function() {
+				ran = true
 				o(a).equals(b)
 				o(a).equals(1)("a and b should be initialized")
 			})
+		})
+		oo.run(function(results) {
+			o(results.length).equals(5)
+			results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+			o(ran).equals(true)
+
+			done()
 		})
 	})
 
 	o.spec("descriptions", function() {
 		o("description returned on failure", function(done) {
-			var oo = o.new()
+			var oo = lib.new()
 			oo("no description", function() {
 				oo(1).equals(2)
 			})
@@ -681,6 +749,7 @@ o.spec("ospec", function() {
 				o(results.length).equals(2)
 				o(results[1].message).equals("howdy\n\n"+results[0].message)
 				o(results[1].pass).equals(false)
+
 				done()
 			})
 		})
@@ -688,17 +757,23 @@ o.spec("ospec", function() {
 })
 o.spec("the done parser", function() {
 	o("accepts non-English names", function() {
-		var oo = o.new()
+		var oo = lib.new()
 		var threw = false
 		oo("test", function(完了) {
 			oo(true).equals(true)
 			完了()
 		})
-		try {oo.run(function(){})} catch(e) {threw = true}
+		try {
+			oo.run(function(results){
+				o(results.length).equals(2)
+				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+			})
+		} catch(e) {threw = e.stack}
+
 		o(threw).equals(false)
 	})
 	o("tolerates comments with an ES5 function expression and a timeoout parameter", function() {
-		var oo = o.new()
+		var oo = lib.new()
 		var threw = false
 		oo("test", function(/*hey
 			*/ /**/ //ho
@@ -710,22 +785,40 @@ o.spec("the done parser", function() {
 			oo(true).equals(true)
 			done()
 		})
-		try {oo.run(function(){})} catch(e) {threw = true}
+		try {
+			oo.run(function(results){
+				o(results.length).equals(2)
+				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+			})
+		} catch(e) {threw = e.stack}
+
 		o(threw).equals(false)
 	})
 	/*eslint-disable no-eval*/
 	o("tolerates comments with an ES5 function expression and no timeoout parameter, unix-style line endings", function() {
-		var oo = o.new()
+		var oo = lib.new()
 		var threw = false
-		oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {timeout(5);oo(true).equals(true);done()})"))
-		try {oo.run(function(){})} catch(e) {threw = true}
+		oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {oo(true).equals(true);done()})"))
+		try {
+			oo.run(function(results){
+				o(results.length).equals(2)
+				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+			})
+		} catch(e) {threw = e.stack}
+
 		o(threw).equals(false)
 	})
 	o("tolerates comments with an ES5 function expression and no timeoout parameter, windows-style line endings", function() {
-		var oo = o.new()
+		var oo = lib.new()
 		var threw = false
-		oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {timeout(5);oo(true).equals(true);done()})"))
-		try {oo.run(function(){})} catch(e) {threw = true}
+		oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {oo(true).equals(true);done()})"))
+		try {
+			oo.run(function(results){
+				o(results.length).equals(2)
+				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+			})
+		} catch(e) {threw = e.stack}
+
 		o(threw).equals(false)
 	})
 	try {eval("(()=>{})()"); o.spec("with ES6 arrow functions", function() {
@@ -734,7 +827,7 @@ o.spec("the done parser", function() {
 			return f.slice(f.indexOf("/*") + 2, f.lastIndexOf("*/"))
 		}
 		o("has no false positives 1", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			eval(getCommentContent(function(){/*
 				oo(
@@ -745,11 +838,17 @@ o.spec("the done parser", function() {
 					}
 				)
 			*/}))
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
+			try {
+				oo.run(function(results){
+					o(results.length).equals(2)
+					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+				})
+			} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 		o("has no false positives 2", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			eval(getCommentContent(function(){/*
 				oo(
@@ -760,12 +859,19 @@ o.spec("the done parser", function() {
 					}
 				)
 			*/}))
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {
+				oo.run(function(results){
+					o(results.length).equals(2)
+					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+				})
+			} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 		o("has no false negatives", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
+			var reporterRan = false
 			eval(getCommentContent(function(){/*
 				oo(
 					"Multiple references to the wrong thing doesn't fool the checker",
@@ -775,12 +881,15 @@ o.spec("the done parser", function() {
 					}
 				)
 			*/}))
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){reporterRan = true})} catch(e) {threw = true}
+
+			o(reporterRan).equals(false)
 			o(threw).equals(true)
 		})
 		o("has no false negatives 2", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
+			var reporterRan = false
 			eval(getCommentContent(function(){/*
 				oo(
 					"Multiple references to the wrong thing doesn't fool the checker",
@@ -790,12 +899,15 @@ o.spec("the done parser", function() {
 					}
 				)
 			*/}))
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){reporterRan = true})} catch(e) {threw = true}
+
+			o(reporterRan).equals(false)
 			o(threw).equals(true)
 		})
 		o("has no false negatives 3", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
+			var reporterRan = false
 			eval(getCommentContent(function(){/*
 				oo(
 					"Multiple references to the wrong thing doesn't fool the checker",
@@ -805,11 +917,13 @@ o.spec("the done parser", function() {
 					}
 				)
 			*/}))
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){reporterRan = true})} catch(e) {threw = true}
+
+			o(reporterRan).equals(false)
 			o(threw).equals(true)
 		})
 		o("works with a literal that has parentheses but no spaces", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			eval(getCommentContent(function(){/*
 				oo(
@@ -820,67 +934,78 @@ o.spec("the done parser", function() {
 					}
 				)
 			*/}))
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
+			try {
+				oo.run(function(results){
+					o(results.length).equals(2)
+					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+				})
+			} catch(e) {threw = e.stack}
 			o(threw).equals(false)
 		})
 		o("isn't fooled by comments", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			oo(
 				"comments won't throw the parser off",
 				eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
 			)
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 		o("isn't fooled by comments (no parens)", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			oo(
 				"comments won't throw the parser off",
 				eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
 			)
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 		o("isn't fooled by comments (with parens, no timeout, unix-style line endings)", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			oo(
 				"comments won't throw the parser off",
 				eval("(done /*hey*/ //ho \n/**/) => {oo(threw).equals(false);done()}")
 			)
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 		o("isn't fooled by comments (with parens, no timeout, windows-style line endings)", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			oo(
 				"comments won't throw the parser off",
 				eval("(done /*hey*/ //ho \r\n/**/) => {oo(threw).equals(false);done()}")
 			)
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 		o("isn't fooled by comments (with parens, with timeout, unix-style line endings)", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			oo(
 				"comments won't throw the parser off",
 				eval("(done /*hey*/ //ho \n/**/, timeout) => {oo(threw).equals(false);done()}")
 			)
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 		o("isn't fooled by comments (with parens, with timeout, windows-style line endings)", function(){
-			var oo = o.new()
+			var oo = lib.new()
 			var threw = false
 			oo(
 				"comments won't throw the parser off",
 				eval("(done /*hey*/ //ho \r\n/**/, timeout) => {oo(threw).equals(false);done()}")
 			)
-			try {oo.run(function(){})} catch(e) {threw = true}
+			try {oo.run(function(){})} catch(e) {threw = e.stack}
+
 			o(threw).equals(false)
 		})
 	})} catch (e) {/*ES5 env, or no eval, ignore*/}

@@ -56,7 +56,6 @@ Promise.all(args.preload.map(
 )).then(
 	() => {
 		let remaining = globList.length
-		console.log({globList, ignore})
 		const tasks = []
 		globList.forEach((globPattern) => {
 			glob(globPattern, {ignore: ignore})

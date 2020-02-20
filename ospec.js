@@ -16,6 +16,7 @@ else window.o = m()
 	var currentTestError = null
 	var globalTimeout = noTimeoutRightNow
 	var Assert = AssertFactory()
+	var depth = 1
 
 	if (name != null) spec[name] = ctx = {}
 
@@ -35,6 +36,7 @@ else window.o = m()
 		this.fn = fn
 		this.err = err
 		this.hookName = hookName
+		this.depth = depth
 	}
 
 	function isRunning() {return results != null}
@@ -100,7 +102,9 @@ else window.o = m()
 		var previousAssert = Assert
 		var parent = ctx
 		ctx = ctx[unique(subject)] = {}
+		depth++
 		predicate()
+		depth--
 		ctx = parent
 		Assert = previousAssert
 	}
@@ -173,7 +177,7 @@ else window.o = m()
 	o.run = function(reporter) {
 		results = []
 		start = new Date
-	
+
 		var finalizer = new Task(function() {
 			setTimeout(function () {
 				timeoutStackName = getStackName({stack: o.cleanStackTrace(ensureStackTrace(new Error))}, /([\w \.]+?:\d+:\d+)/)
@@ -257,18 +261,10 @@ else window.o = m()
 				var current = cursor
 				var isDone = false
 				var arg
-
+				// console.log({task, depth})
 				globalTimeout = setDelay
 				if (isHook) {
-					var name = task.hookName
-					var iHook = cursor
-
-					while (
-						(task.hookName === "beforeEach" && tasks[iHook++].hookName === task.hookName)
-						|| (task.hookName === "afterEach" && tasks[(iHook--) - 2].hookName === task.hookName)
-					) name += "*"
-					name = "[[ o." + name + " ]]"
-					subjects.push(name)
+					subjects.push("[[ o."+ task.hookName + Array.apply(null, {length: task.depth}).join("*") + " ]]")
 				}
 
 				// public API, may only be called once from use code (or after returned Promise resolution)
@@ -280,7 +276,6 @@ else window.o = m()
 				}
 				// for internal use only
 				function finalizeAsync(err) {
-					if (isHook) subjects.pop()
 					if (err == null) {
 						if (task.err != null) succeed(new Assert().result)
 					} else {
@@ -288,7 +283,13 @@ else window.o = m()
 						else fail(new Assert().result, String(err), null)
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
-					if (current === cursor) next()
+					if (current === cursor) {
+						// TODO: figure out a way to test that this works properly in async contexts
+						// this probably isn't... The way current is defined and cursor is incremented
+						// will have to be revisited
+						if (isHook) subjects.pop()
+						next()
+					}
 				}
 				function startTimer() {
 					timeout = setTimeout(function() {

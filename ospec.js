@@ -106,6 +106,8 @@ else window.o = m()
 			pre = [].concat(pre, spec["\x01beforeEach"] || [])
 			post = [].concat(spec["\x01afterEach"] || [], post)
 			series([].concat(spec["\x01before"] || [], Object.keys(spec).reduce(function(tasks, key) {
+				// Skip hooks, and, if in `only` mode tasks.
+				// Always run specs though, in case there is another `only` nested in there.
 				if (key.charCodeAt(0) !== 1 && (only.length === 0 || only.indexOf(spec[key].fn) !== -1 || !(spec[key] instanceof Task))) {
 					tasks.push(new Task(function(done) {
 						o.timeout(Infinity)
@@ -128,14 +130,26 @@ else window.o = m()
 
 				var task = tasks[cursor++]
 				var fn = task.fn
+				var isHook = task.hookName != null
 				currentTestError = task.err
 				var timeout = 0, delay = defaultDelay, s = new Date
 				var current = cursor
+				var isDone = false
 				var arg
 
 				globalTimeout = setDelay
+				if (isHook) {
+					var name = task.hookName
+					var iHook = cursor
 
-				var isDone = false
+					while (
+						(task.hookName === "beforeEach" && tasks[iHook++].hookName === task.hookName)
+						|| (task.hookName === "afterEach" && tasks[(iHook--) - 2].hookName === task.hookName)
+					) name += "*"
+					name = "[[ o." + name + " ]]"
+					subjects.push(name)
+				}
+
 				// public API, may only be called once from use code (or after returned Promise resolution)
 				function done(err) {
 					if (!isDone) isDone = true
@@ -145,6 +159,7 @@ else window.o = m()
 				}
 				// for internal use only
 				function finalizeAsync(err) {
+					if (isHook) subjects.pop()
 					if (err == null) {
 						if (task.err != null) succeed(new Assert().result)
 					} else {
@@ -193,6 +208,7 @@ else window.o = m()
 							startTimer()
 							p.then(function() { done() }, done)
 						} else {
+							if (isHook) subjects.pop()
 							nextTickish(next)
 						}
 					} catch (e) {
@@ -215,7 +231,7 @@ else window.o = m()
 	function hook(name) {
 		return function(predicate) {
 			if (ctx[name]) throw new Error(name.slice(1) + " should be defined outside of a loop or inside a nested test group.")
-			ctx[name] = new Task(predicate, ensureStackTrace(new Error))
+			ctx[name] = new Task(predicate, ensureStackTrace(new Error), name.slice(1))
 		}
 	}
 
@@ -281,12 +297,13 @@ else window.o = m()
 	function isRunning() {return results != null}
 	function Assert(value) {
 		this.value = value
-		this.result = {pass: null, context: "", message: "Incomplete assertion in the test definition starting at...", error: currentTestError, testError: currentTestError}
+		this.result = {pass: null, context: subjects.join(" > "), message: "Incomplete assertion in the test definition starting at...", error: currentTestError, testError: currentTestError}
 		results.push(this.result)
 	}
-	function Task(fn, err) {
+	function Task(fn, err, hookName) {
 		this.fn = fn
 		this.err = err
+		this.hookName = hookName
 	}
 	function define(name, verb, compare) {
 		Assert.prototype[name] = function assert(value) {
@@ -303,12 +320,10 @@ else window.o = m()
 	}
 	function succeed(result, message) {
 		result.pass = true
-		result.context = subjects.join(" > ")
 		result.message = message
 	}
 	function fail(result, message, error) {
 		result.pass = false
-		result.context = subjects.join(" > ")
 		result.message = message
 		result.error = error != null ? error : ensureStackTrace(new Error)
 	}

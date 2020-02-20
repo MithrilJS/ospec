@@ -111,44 +111,11 @@ o("o.only", function(done) {
 
 // Predicate test passing on clone results
 o.spec("reporting", function() {
-	var oo
-	o.beforeEach(function() {
-		oo = lib.new()
-		oo.spec("wrapper", function () {
-			oo.before(function() {
-				oo(true).equals(true)
-			})
-			oo.after(function() {
-				oo(true).equals(true)
-			})
-			oo.beforeEach(function() {
-				oo(true).equals(true)
-			})
-			oo.afterEach(function() {
-				oo(true).equals(true)
-			})
-			oo.spec("inner", function() {
-				oo.before(function() {
-					oo(true).equals(true)
-				})
-				oo.after(function() {
-					oo(true).equals(true)
-				})
-				oo.beforeEach(function() {
-					oo(true).equals(true)
-				})
-				oo.afterEach(function() {
-					oo(true).equals(true)
-				})
-				oo("fail", function() {
-					oo(true).equals(false)
-				})
-	
-				oo("pass", function() {
-					oo(true).equals(true)
-				})
-			})
-		})
+	o("results (assertion order in hooks and tests)", function(done) {
+		o.timeout(100) // Waiting on clone
+
+		var oo = lib.new()
+
 		oo.before(function() {
 			oo(true).equals(true)
 		})
@@ -162,9 +129,42 @@ o.spec("reporting", function() {
 			oo(true).equals(true)
 		})
 
-	})
-	o("reports per instance", function(done, timeout) {
-		timeout(100) // Waiting on clone
+		oo.spec("wrapper", function () {
+			oo.before(function() {
+				oo(true).equals(true)
+			})
+			oo.after(function() {
+				oo(true).equals(true)
+			})
+			oo.beforeEach(function() {
+				oo(true).equals(true)
+			})
+			oo.afterEach(function() {
+				oo(true).equals(true)
+			})
+
+			oo.spec("inner", function() {
+				oo.before(function() {
+					oo(true).equals(true)
+				})
+				oo.after(function() {
+					oo(true).equals(true)
+				})
+				oo.beforeEach(function() {
+					oo(true).equals(true)
+				})
+				oo.afterEach(function() {
+					oo(true).equals(true)
+				})
+
+				oo("fail", function() {
+					oo(true).equals(false)
+				})
+				oo("pass", function() {
+					oo(true).equals(true)
+				})
+			})
+		})
 
 		oo.run(function(results) {
 			o(typeof results).equals("object")
@@ -172,12 +172,12 @@ o.spec("reporting", function() {
 			o(results.length).equals(20)("Two results")
 
 			o(results[0].context).equals("[[ o.before ]]")
-			o(results[1].context).equals("wrapper > [[ o.before ]]")
-			o(results[2].context).equals("wrapper > inner > [[ o.before ]]")
+			o(results[1].context).equals("wrapper > [[ o.before* ]]")
+			o(results[2].context).equals("wrapper > inner > [[ o.before** ]]")
 
-			o(results[3].context).equals("wrapper > inner > fail > [[ o.beforeEach** ]]")
+			o(results[3].context).equals("wrapper > inner > fail > [[ o.beforeEach ]]")
 			o(results[4].context).equals("wrapper > inner > fail > [[ o.beforeEach* ]]")
-			o(results[5].context).equals("wrapper > inner > fail > [[ o.beforeEach ]]")
+			o(results[5].context).equals("wrapper > inner > fail > [[ o.beforeEach** ]]")
 
 			o("error" in results[6]).equals(true)("error key present in failing result")
 			o("pass" in results[6]).equals(true)("pass key present in failing result")
@@ -185,30 +185,31 @@ o.spec("reporting", function() {
 			o(results[6].context).equals("wrapper > inner > fail")
 			o(results[6].pass).equals(false)("Test meant to fail has failed")
 
-			o(results[7].context).equals("wrapper > inner > fail > [[ o.afterEach ]]")
+			o(results[7].context).equals("wrapper > inner > fail > [[ o.afterEach** ]]")
 			o(results[8].context).equals("wrapper > inner > fail > [[ o.afterEach* ]]")
-			o(results[9].context).equals("wrapper > inner > fail > [[ o.afterEach** ]]")
+			o(results[9].context).equals("wrapper > inner > fail > [[ o.afterEach ]]")
 
-			o(results[10].context).equals("wrapper > inner > pass > [[ o.beforeEach** ]]")
+			o(results[10].context).equals("wrapper > inner > pass > [[ o.beforeEach ]]")
 			o(results[11].context).equals("wrapper > inner > pass > [[ o.beforeEach* ]]")
-			o(results[12].context).equals("wrapper > inner > pass > [[ o.beforeEach ]]")
+			o(results[12].context).equals("wrapper > inner > pass > [[ o.beforeEach** ]]")
 
 			o("message" in results[13]).equals(true)("message key present in passing result")
 			o(results[13].context).equals("wrapper > inner > pass")
 			o(results[13].pass).equals(true)("Test meant to pass has passed")
 
-			o(results[14].context).equals("wrapper > inner > pass > [[ o.afterEach ]]")
+			o(results[14].context).equals("wrapper > inner > pass > [[ o.afterEach** ]]")
 			o(results[15].context).equals("wrapper > inner > pass > [[ o.afterEach* ]]")
-			o(results[16].context).equals("wrapper > inner > pass > [[ o.afterEach** ]]")
+			o(results[16].context).equals("wrapper > inner > pass > [[ o.afterEach ]]")
 
-			o(results[17].context).equals("wrapper > inner > [[ o.after ]]")
-			o(results[18].context).equals("wrapper > [[ o.after ]]")
+			o(results[17].context).equals("wrapper > inner > [[ o.after** ]]")
+			o(results[18].context).equals("wrapper > [[ o.after* ]]")
 			o(results[19].context).equals("[[ o.after ]]")
 			done()
 		})
 	})
 	o("o.report() returns the number of failures", function () {
 		var log = console.log, error = console.error
+		var oo = lib.new()
 		console.log = o.spy()
 		console.error = o.spy()
 
@@ -257,10 +258,45 @@ o.spec("ospec", function() {
 		o.afterEach(function() {b = 0})
 
 
-		o("assertions", function(done) {
+		o("test definitions", function(done){
+			var nestedThrows = {
+				hook: {
+					hook: false,
+					test: false
+				},
+				test: {
+					hook: false,
+					test: false
+				}
+			}
+			var expectedTrows = {
+				hook: {
+					hook: false,
+					test: false
+				},
+				test: {
+					hook: false,
+					test: true
+				}
+			}
 			var reservedTestNameTrows = false
+			var oo = lib.new()
+			oo.before(function() {
+
+			})
+			try {oo("\x01reserved test name", function(){})} catch (e) {reservedTestNameTrows = true}
+			oo("test", function() {
+				try {oo("illegal nested test", function(){})} catch (e) {nestedThrows.test.test = true}
+			})
+			oo.run(function(){
+				o({nestedThrows:nestedThrows}).deepEquals({nestedThrows: expectedTrows})
+				o(reservedTestNameTrows).equals(true)
+				done()
+			})
+
+		})
+		o("assertions", function(done) {
 			var illegalAssertionThrows = false
-			var nestedTestDeclarationThrows = false
 
 			var spy = o.spy()
 			spy(a)
@@ -268,10 +304,8 @@ o.spec("ospec", function() {
 			var oo = lib.new()
 
 			try {oo("illegal assertion")} catch (e) {illegalAssertionThrows = true}
-			try {oo("\x01reserved test name", function(){})} catch (e) {reservedTestNameTrows = true}
 
 			oo("test", function() {
-				try {oo("illegal nested test", function(){})} catch (e) {nestedTestDeclarationThrows = true}
 				oo(a).equals(b)
 				oo(a).notEquals(2)
 				oo({a: [1, 2], b: 3}).deepEquals({a: [1, 2], b: 3})
@@ -280,41 +314,41 @@ o.spec("ospec", function() {
 				oo(function(){"ayy".foo()}).throws(TypeError)
 				oo(function(){Math.PI.toFixed(Math.pow(10,20))}).throws(RangeError)
 				oo(function(){decodeURIComponent("%")}).throws(URIError)
-	
+
 				oo(function(){"ayy".foo()}).notThrows(SyntaxError)
 				oo(function(){throw new Error("foo")}).throws("foo")
 				oo(function(){throw new Error("foo")}).notThrows("bar")
-	
+
 				var undef1 = {undef: void 0}
 				var undef2 = {UNDEF: void 0}
-	
+
 				oo(undef1).notDeepEquals(undef2)
 				oo(undef1).notDeepEquals({})
 				oo({}).notDeepEquals(undef1)
-	
+
 				var sparse1 = [void 1, void 2, void 3]
 				delete sparse1[0]
 				var sparse2 = [void 1, void 2, void 3]
 				delete sparse2[1]
-	
+
 				oo(sparse1).notDeepEquals(sparse2)
-	
+
 				var monkeypatch1 = [1, 2]
 				monkeypatch1.field = 3
 				var monkeypatch2 = [1, 2]
 				monkeypatch2.field = 4
-	
+
 				oo(monkeypatch1).notDeepEquals([1, 2])
 				oo(monkeypatch1).notDeepEquals(monkeypatch2)
-	
+
 				monkeypatch2.field = 3
 				oo(monkeypatch1).deepEquals(monkeypatch2)
-	
+
 				monkeypatch1.undef = undefined
 				monkeypatch2.UNDEF = undefined
-	
+
 				oo(monkeypatch1).notDeepEquals(monkeypatch2)
-	
+
 				var values = ["a", "", 1, 0, true, false, null, undefined, Date(0), ["a"], [], function() {return arguments}.call(), new Uint8Array(), {a: 1}, {}]
 				for (var i = 0; i < values.length; i++) {
 					for (var j = 0; j < values.length; j++) {
@@ -329,8 +363,6 @@ o.spec("ospec", function() {
 					o(result.pass).equals(true)(stringify(result))
 				})
 				o(illegalAssertionThrows).equals(true)
-				o(nestedTestDeclarationThrows).equals(true)
-				o(reservedTestNameTrows).equals(true)
 				o(spy.callCount).equals(1)
 				o(spy.args.length).equals(1)
 				o(spy.args[0]).equals(1)

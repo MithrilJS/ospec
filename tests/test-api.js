@@ -99,33 +99,98 @@ o("o.only", function(done) {
 // Predicate test passing on clone results
 o.spec("reporting", function() {
 	var oo
-	o.beforeEach(function(){
+	o.beforeEach(function() {
 		oo = lib.new()
-
-		oo.spec("clone", function() {
-			oo("fail", function() {
-				oo(true).equals(false)
-			})
-
-			oo("pass", function() {
+		oo.spec("wrapper", function () {
+			oo.before(function() {
 				oo(true).equals(true)
 			})
+			oo.after(function() {
+				oo(true).equals(true)
+			})
+			oo.beforeEach(function() {
+				oo(true).equals(true)
+			})
+			oo.afterEach(function() {
+				oo(true).equals(true)
+			})
+			oo.spec("inner", function() {
+				oo.before(function() {
+					oo(true).equals(true)
+				})
+				oo.after(function() {
+					oo(true).equals(true)
+				})
+				oo.beforeEach(function() {
+					oo(true).equals(true)
+				})
+				oo.afterEach(function() {
+					oo(true).equals(true)
+				})
+				oo("fail", function() {
+					oo(true).equals(false)
+				})
+	
+				oo("pass", function() {
+					oo(true).equals(true)
+				})
+			})
 		})
+		oo.before(function() {
+			oo(true).equals(true)
+		})
+		oo.after(function() {
+			oo(true).equals(true)
+		})
+		oo.beforeEach(function() {
+			oo(true).equals(true)
+		})
+		oo.afterEach(function() {
+			oo(true).equals(true)
+		})
+
 	})
-	o("reports per instance", function(done, timeout) {
+	o.only("reports per instance", function(done, timeout) {
 		timeout(100) // Waiting on clone
 
 		oo.run(function(results) {
 			o(typeof results).equals("object")
 			o("length" in results).equals(true)
-			o(results.length).equals(2)("Two results")
+			o(results.length).equals(20)("Two results")
 
-			o("error" in results[0] && "pass" in results[0]).equals(true)("error and pass keys present in failing result")
-			o("message" in results[0] && "context" in results[0]).equals(true)("message and context keys present in failing result")
-			o("message" in results[1] && "context" in results[1]).equals(true)("message and context keys present in passing result")
-			o(results[0].pass).equals(false)("Test meant to fail has failed")
-			o(results[1].pass).equals(true)("Test meant to pass has passed")
+			o(results[0].context).equals("[[ o.before ]]")
+			o(results[1].context).equals("wrapper > [[ o.before ]]")
+			o(results[2].context).equals("wrapper > inner > [[ o.before ]]")
 
+			o(results[3].context).equals("wrapper > inner > fail > [[ o.beforeEach** ]]")
+			o(results[4].context).equals("wrapper > inner > fail > [[ o.beforeEach* ]]")
+			o(results[5].context).equals("wrapper > inner > fail > [[ o.beforeEach ]]")
+
+			o("error" in results[6]).equals(true)("error key present in failing result")
+			o("pass" in results[6]).equals(true)("pass key present in failing result")
+			o("message" in results[6]).equals(true)("message key present in failing result")
+			o(results[6].context).equals("wrapper > inner > fail")
+			o(results[6].pass).equals(false)("Test meant to fail has failed")
+
+			o(results[7].context).equals("wrapper > inner > fail > [[ o.afterEach ]]")
+			o(results[8].context).equals("wrapper > inner > fail > [[ o.afterEach* ]]")
+			o(results[9].context).equals("wrapper > inner > fail > [[ o.afterEach** ]]")
+
+			o(results[10].context).equals("wrapper > inner > pass > [[ o.beforeEach** ]]")
+			o(results[11].context).equals("wrapper > inner > pass > [[ o.beforeEach* ]]")
+			o(results[12].context).equals("wrapper > inner > pass > [[ o.beforeEach ]]")
+
+			o("message" in results[13]).equals(true)("message key present in passing result")
+			o(results[13].context).equals("wrapper > inner > pass")
+			o(results[13].pass).equals(true)("Test meant to pass has passed")
+
+			o(results[14].context).equals("wrapper > inner > pass > [[ o.afterEach ]]")
+			o(results[15].context).equals("wrapper > inner > pass > [[ o.afterEach* ]]")
+			o(results[16].context).equals("wrapper > inner > pass > [[ o.afterEach** ]]")
+
+			o(results[17].context).equals("wrapper > inner > [[ o.after ]]")
+			o(results[18].context).equals("wrapper > [[ o.after ]]")
+			o(results[19].context).equals("[[ o.after ]]")
 			done()
 		})
 	})
@@ -398,7 +463,7 @@ o.spec("ospec", function() {
 					// todo test cleaned up results[0].error stack trace for the presence
 					// of the timeout stack entry
 					o(results[0].testError instanceof Error).equals(true)
-					o(oo.cleanStackTrace(results[0].testError).indexOf("test-ospec.js:" + (line + 3) + ":")).notEquals(-1)
+					o(oo.cleanStackTrace(results[0].testError).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
 
 					done()
 				}))
@@ -422,7 +487,7 @@ o.spec("ospec", function() {
 					o(results.length).equals(1)
 					o(results[0].pass).equals(false)
 					o(results[0].testError instanceof Error).equals(true)
-					o(oo.cleanStackTrace(results[0].testError).indexOf("test-ospec.js:" + (line + 3) + ":")).notEquals(-1)
+					o(oo.cleanStackTrace(results[0].testError).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
 
 					done()
 				}))
@@ -675,7 +740,7 @@ o.spec("ospec", function() {
 			} catch(error) {
 				var trace = oo.cleanStackTrace(error)
 				o(trace).notEquals("break")
-				o(trace.indexOf("test-ospec.js") !== -1).equals(true)
+				o(trace.indexOf("test-api.js") !== -1).equals(true)
 			}
 		})
 	})

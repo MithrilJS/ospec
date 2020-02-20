@@ -269,31 +269,50 @@ o.spec("ospec", function() {
 					test: false
 				}
 			}
+
 			var expectedTrows = {
 				hook: {
-					hook: false,
-					test: false
+					hook: true,
+					test: true
 				},
 				test: {
-					hook: false,
+					hook: true,
 					test: true
 				}
 			}
+
 			var reservedTestNameTrows = false
 			var oo = lib.new()
-			oo.before(function() {
+			var spyReserved = o.spy()
+			var spyHookHook = o.spy()
+			var spyHookTest = o.spy()
+			var spyTestHook = o.spy()
+			var spyTestTest = o.spy()
 
+			oo.before(function() {
+				try {oo("illegal test nested in hook", spyHookTest)} catch (e) {nestedThrows.hook.test = true}
+				try {oo.beforeEach(spyHookHook)} catch (e) {nestedThrows.hook.hook = true}
 			})
-			try {oo("\x01reserved test name", function(){})} catch (e) {reservedTestNameTrows = true}
+
+			try {oo("\x01reserved test name", spyReserved)} catch (e) {reservedTestNameTrows = true}
+
 			oo("test", function() {
-				try {oo("illegal nested test", function(){})} catch (e) {nestedThrows.test.test = true}
+				try {oo("illegal nested test", spyTestTest)} catch (e) {nestedThrows.test.test = true}
+				try {oo.after(spyTestHook)} catch (e) {nestedThrows.test.hook = true}
 			})
+
 			oo.run(function(){
+				o(spyReserved.callCount).equals(0)
+				o(spyHookHook.callCount).equals(0)
+				o(spyHookTest.callCount).equals(0)
+				o(spyTestHook.callCount).equals(0)
+				o(spyTestTest.callCount).equals(0)
+
 				o({nestedThrows:nestedThrows}).deepEquals({nestedThrows: expectedTrows})
 				o(reservedTestNameTrows).equals(true)
+
 				done()
 			})
-
 		})
 		o("assertions", function(done) {
 			var illegalAssertionThrows = false

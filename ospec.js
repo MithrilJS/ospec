@@ -33,6 +33,10 @@ else window.o = m()
 		}
 
 	function Task(fn, err, hookName) {
+		// This test needs to be here rather than in `o("name", test(){})`
+		// in order to also cover nested hooks.
+		// `err` is null for internal tasks that can be defined at any time.
+		if (isRunning() && err != null) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'.")
 		this.fn = fn
 		this.err = err
 		this.hookName = hookName
@@ -76,7 +80,6 @@ else window.o = m()
 			if (!isRunning()) throw new Error("Assertions should not occur outside test definitions.")
 			return new Assert(subject)
 		} else {
-			if (isRunning()) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'.")
 			subject = String(subject)
 			if (subject.charCodeAt(0) === 1) throw new Error("test names starting with '\\x01' are reserved for internal use.")
 			ctx[unique(subject)] = new Task(predicate, ensureStackTrace(new Error))

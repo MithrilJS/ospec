@@ -22,6 +22,7 @@ o("API", function() {
 	// make sure that the main exported object also exposes the API
 	o(typeof lib).equals("function")
 
+	o(typeof lib.addExtension).equals("function")
 	o(typeof lib.after).equals("function")
 	o(typeof lib.afterEach).equals("function")
 	o(typeof lib.before).equals("function")
@@ -65,6 +66,18 @@ if (typeof process !== "undefined") {
 		})
 	})
 }
+
+o("one test, one assertion that succeeds", function () {
+	var oo = lib.new()
+	oo("test", function() {
+		oo(true).equals(true)
+	})
+	oo.run(function(result) {
+		o(Array.isArray(result)).equals(true)("result is an Array")
+		o(result.length).equals(1)
+		o(result[0].pass).equals(true)
+	})
+})
 
 o("o.only", function(done) {
 	var oo = lib.new()
@@ -150,7 +163,7 @@ o.spec("reporting", function() {
 		})
 
 	})
-	o.only("reports per instance", function(done, timeout) {
+	o("reports per instance", function(done, timeout) {
 		timeout(100) // Waiting on clone
 
 		oo.run(function(results) {
@@ -1075,4 +1088,65 @@ o.spec("the done parser", function() {
 		})
 	})} catch (e) {/*ES5 env, or no eval, ignore*/}
 	/*eslint-enable no-eval*/
+})
+o.spec("extensions", function() {
+	o("basics", function(done) {
+		var oo = lib.new()
+		var alwaysSucceeds = o.spy(function (actual, expected) {
+			o(actual).equals(1)
+			o(expected).equals(2)
+			return "SUCCESS"
+		})
+		var alwaysFails = o.spy(function (actual, expected) {
+			o(actual).equals(3)
+			o(expected).equals(4)
+			throw "FAILURE"
+		})
+		o(typeof oo.addExtension).equals("function")
+		oo.spec("my spec", function() {
+			oo.addExtension("alwaysSucceeds", alwaysSucceeds)
+			oo.addExtension("alwaysFails", alwaysFails)
+			oo("test", function () {
+
+				var assertion = oo(true)
+
+				o(typeof assertion.equals).equals("function")
+				o(typeof assertion.notEquals).equals("function")
+				o(typeof assertion.deepEquals).equals("function")
+				o(typeof assertion.notDeepEquals).equals("function")
+				o(typeof assertion.throws).equals("function")
+				o(typeof assertion.notThrows).equals("function")
+				o(typeof assertion.alwaysSucceeds).equals("function")
+				o(typeof assertion.alwaysFails).equals("function")
+
+				assertion.equals(true)
+
+				oo(1).alwaysSucceeds(2)
+				oo(3).alwaysFails(4)
+			})
+		})
+		oo("test in global scope", function() {
+			var assertion = oo(true)
+			o(assertion.alwaysSucceeds).equals(void 0)
+			o(assertion.alwaysFails).equals(void 0)
+			assertion.equals(true)
+		})
+		oo.run(function(results) {
+			o(alwaysSucceeds.callCount).equals(1)
+			o(alwaysFails.callCount).equals(1)
+			o(results.length).equals(4)
+
+			o(results[0].pass).equals(true)
+
+			o(results[1].pass).equals(true)("[0] passed")
+			o(results[1].message).equals("SUCCESS")
+
+			o(results[2].pass).equals(false)("[0] failed")
+			o(results[2].message).equals("FAILURE")
+
+			o(results[3].pass).equals(true)
+
+			done()
+		})
+	})
 })

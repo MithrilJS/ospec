@@ -275,11 +275,13 @@ else window.o = m()
 					if (!isDone) isDone = true
 					else throw new Error("'" + arg + "()' should only be called once.")
 					if (timeout === undefined) console.warn("# elapsed: " + Math.round(new Date - s) + "ms, expected under " + delay + "ms\n" + o.cleanStackTrace(task.err))
+					// for now, tolerate done(null) and done(undefined)
+					// since this has worked since day 1
 					finalizeAsync(err)
 				}
 				// for internal use only
-				function finalizeAsync(err) {
-					if (err == null) {
+				function finalizeAsync(err, threw) {
+					if (err == null && !threw) {
 						if (task.err != null) succeed(new Assert().result)
 					} else {
 						if (err instanceof Error) fail(new Assert().result, err.message, err)
@@ -319,7 +321,7 @@ else window.o = m()
 						fn(done, setDelay)
 					}
 					catch (e) {
-						if (task.err != null) finalizeAsync(e)
+						if (task.err != null) finalizeAsync(e, true)
 						// The errors of internal tasks (which don't have an Err) are ospec bugs and must be rethrown.
 						else throw e
 					}
@@ -337,7 +339,7 @@ else window.o = m()
 							nextTickish(next)
 						}
 					} catch (e) {
-						if (task.err != null) finalizeAsync(e)
+						if (task.err != null) finalizeAsync(e, true)
 						// The errors of internal tasks (which don't have an Err) are ospec bugs and must be rethrown.
 						else throw e
 					}

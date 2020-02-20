@@ -490,18 +490,48 @@ o.spec("ospec", function() {
 	o.spec("throwing in test context is recorded as a failure", function() {
 		var oo
 		o.beforeEach(function(){oo = lib.new()})
-		o.afterEach(function() {
+		o.afterEach(function(done) {
 			oo.run(function(results) {
 				o(results.length).equals(1)
 				o(results[0].pass).equals(false)
+
+				done()
 			})
 		})
-		o("sync test", function() {
-			oo("throw in sync test", function() {throw new Error})
+
+		o("sync, throwing an Error", function() {
+			oo("", function() {throw new Error("an error")})
 		})
-		o("async test", function() {
-			oo("throw in async test", function(done) {
-				throw new Error
+		o("async, throwing an Error", function() {
+			oo("", function(done) {
+				throw new Error("an error")
+				done() // eslint-disable-line no-unreachable
+			})
+		})
+		o("sync, throwing a string", function() {
+			oo("", function() {throw "a string"})
+		})
+		o("async, throwing a string", function() {
+			oo("", function(done) {
+				throw "a string"
+				done() // eslint-disable-line no-unreachable
+			})
+		})
+		o("sync, throwing null", function() {
+			oo("", function() {throw null})
+		})
+		o("async, throwing null", function() {
+			oo("", function(done) {
+				throw null
+				done() // eslint-disable-line no-unreachable
+			})
+		})
+		o("sync, throwing undefined", function() {
+			oo("", function() {throw undefined})
+		})
+		o("async, throwing undefined", function() {
+			oo("", function(done) {
+				throw undefined
 				done() // eslint-disable-line no-unreachable
 			})
 		})

@@ -35,10 +35,12 @@ else window.o = m()
 	}
 	o.new = init
 	o.spec = function(subject, predicate) {
+		var previousAssert = Assert
 		var parent = ctx
 		ctx = ctx[unique(subject)] = {}
 		predicate()
 		ctx = parent
+		Assert = previousAssert
 	}
 	o.only = function(subject, predicate, silent) {
 		if (!silent) console.log(
@@ -102,6 +104,10 @@ else window.o = m()
 		}, null), 200 /*default timeout delay*/)
 
 		function test(spec, pre, post, finalize, defaultDelay) {
+			var previousAssert = Assert
+			if (spec["\x01CustomAssert"] != null) Assert = spec["\x01CustomAssert"]
+			var restoreParentAssert = new Task(function() {Assert = previousAssert})
+
 			if (hasOwn.call(spec, "\x01specTimeout")) defaultDelay = spec["\x01specTimeout"]
 			pre = [].concat(pre, spec["\x01beforeEach"] || [])
 			post = [].concat(spec["\x01afterEach"] || [], post)
@@ -118,7 +124,7 @@ else window.o = m()
 					}, null))
 				}
 				return tasks
-			}, []), spec["\x01after"] || [], finalize), defaultDelay)
+			}, []), spec["\x01after"] || [], restoreParentAssert, finalize), defaultDelay)
 		}
 
 		function series(tasks, defaultDelay) {
@@ -234,7 +240,49 @@ else window.o = m()
 			ctx[name] = new Task(predicate, ensureStackTrace(new Error), name.slice(1))
 		}
 	}
-
+	function AssertFactory() {
+		return function Assert(value) {
+			this.value = value
+			this.result = {pass: null, context: subjects.join(" > "), message: "Incomplete assertion in the test definition starting at...", error: currentTestError, testError: currentTestError}
+			results.push(this.result)
+		}
+	}
+	var Assert = AssertFactory()
+	o.addExtension = function(name, handler) {
+		if (isRunning()) throw new Error("please add extensions outside of tests")
+		if (ctx === spec) throw new Error("you can't extend the global scope")
+		if (name in Assert.prototype) throw new Error("attempt at redefining o()." + name + "()")
+		if (ctx["\x01CustomAssert"] == null) {
+			var proto = Object.create(Assert.prototype)
+			Assert = AssertFactory()
+			Assert.prototype = proto
+			ctx["\x01CustomAssert"] = Assert
+		}
+		Assert.prototype[name] = createAssertion(handler)
+	}
+	function createAssertion(f) {
+		return function(expected) {
+			var self = this
+			try {
+				succeed(self.result, f(self.value, expected))
+			} catch (e) {
+				if (e instanceof Error) fail(self.result, e.message, e)
+				else fail(self.result, e)
+			}
+			return function(message) {
+				if (!self.result.pass) {
+					self.result.message = message + "\n\n" + self.result.message
+				}
+			}
+		}
+	}
+	function define(name, verb, compare) {
+		Assert.prototype[name] = createAssertion(function(actual, expected) {
+			var message = serialize(actual) + "\n  " + verb + "\n" + serialize(expected)
+			if (compare(actual, expected)) return message
+			else throw message
+		})
+	}
 	define("equals", "should equal", function(a, b) {return a === b})
 	define("notEquals", "should not equal", function(a, b) {return a !== b})
 	define("deepEquals", "should deep equal", deepEqual)
@@ -295,28 +343,10 @@ else window.o = m()
 	}
 
 	function isRunning() {return results != null}
-	function Assert(value) {
-		this.value = value
-		this.result = {pass: null, context: subjects.join(" > "), message: "Incomplete assertion in the test definition starting at...", error: currentTestError, testError: currentTestError}
-		results.push(this.result)
-	}
 	function Task(fn, err, hookName) {
 		this.fn = fn
 		this.err = err
 		this.hookName = hookName
-	}
-	function define(name, verb, compare) {
-		Assert.prototype[name] = function assert(value) {
-			var self = this
-			var message = serialize(self.value) + "\n  " + verb + "\n" + serialize(value)
-			if (compare(self.value, value)) succeed(self.result, message)
-			else fail(self.result, message)
-			return function(message) {
-				if (!self.result.pass) {
-					self.result.message = message + "\n\n" + self.result.message
-				}
-			}
-		}
 	}
 	function succeed(result, message) {
 		result.pass = true

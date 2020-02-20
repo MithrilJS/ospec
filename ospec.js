@@ -3,15 +3,72 @@
 if (typeof module !== "undefined") module["exports"] = m()
 else window.o = m()
 })(function init(name) {
-	var spec = {}, subjects = [], results, only = [], ctx = spec, start, stack = 0, nextTickish, hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
-	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/), timeoutStackName
-	var globalTimeout = noTimeoutRightNow
+	// # Setup
+	// const
+	var spec = {}
+	var subjects = []
+	var hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
+	var only = []
+	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
+
+	// stack-managed globals
+	var ctx = spec
 	var currentTestError = null
+	var globalTimeout = noTimeoutRightNow
+	var Assert = AssertFactory()
+
 	if (name != null) spec[name] = ctx = {}
 
-	try {throw new Error} catch (e) {
-		var ospecFileName = e.stack && (/[\/\\](.*?):\d+:\d+/).test(e.stack) ? e.stack.match(/[\/\\](.*?):\d+:\d+/)[1] : null
+	// Shared state, set only once, but initialization is delayed
+	var results, start, timeoutStackName
+
+	// # Core helpers
+	var stack = 0
+	var nextTickish = hasProcess
+		? process.nextTick
+		: function fakeFastNextTick(next) {
+			if (stack++ < 5000) next()
+			else setTimeout(next, stack = 0)
+		}
+
+	function Task(fn, err, hookName) {
+		this.fn = fn
+		this.err = err
+		this.hookName = hookName
 	}
+
+	function isRunning() {return results != null}
+
+	function ensureStackTrace(error) {
+		// mandatory to get a stack in IE 10 and 11 (and maybe other envs?)
+		if (error.stack === undefined) try { throw error } catch(e) {return e}
+		else return error
+	}
+
+	function getStackName(e, exp) {
+		return e.stack && exp.test(e.stack) ? e.stack.match(exp)[1] : null
+	}
+
+	function hook(name) {
+		return function(predicate) {
+			if (ctx[name]) throw new Error(name.slice(1) + " should be defined outside of a loop or inside a nested test group.")
+			ctx[name] = new Task(predicate, ensureStackTrace(new Error), name.slice(1))
+		}
+	}
+
+	function noTimeoutRightNow() {
+		throw new Error("o.timeout must be called snchronously from within a test definition or a hook.")
+	}
+
+	function unique(subject) {
+		if (hasOwn.call(ctx, subject)) {
+			console.warn("A test or a spec named '" + subject + "' was already defined.")
+			while (hasOwn.call(ctx, subject)) subject += "*"
+		}
+		return subject
+	}
+
+	// # API
 	function o(subject, predicate) {
 		if (predicate === undefined) {
 			if (!isRunning()) throw new Error("Assertions should not occur outside test definitions.")
@@ -23,18 +80,23 @@ else window.o = m()
 			ctx[unique(subject)] = new Task(predicate, ensureStackTrace(new Error))
 		}
 	}
+
 	o.before = hook("\x01before")
 	o.after = hook("\x01after")
 	o.beforeEach = hook("\x01beforeEach")
 	o.afterEach = hook("\x01afterEach")
+
 	o.specTimeout = function (t) {
 		if (isRunning()) throw new Error("o.specTimeout() can only be called before o.run().")
 		if (hasOwn.call(ctx, "\x01specTimeout")) throw new Error("A default timeout has already been defined in this context.")
 		if (typeof t !== "number") throw new Error("o.specTimeout() expects a number as argument.")
 		ctx["\x01specTimeout"] = t
 	}
+
 	o.new = init
+
 	o.spec = function(subject, predicate) {
+		// stack managed globals
 		var previousAssert = Assert
 		var parent = ctx
 		ctx = ctx[unique(subject)] = {}
@@ -42,6 +104,7 @@ else window.o = m()
 		ctx = parent
 		Assert = previousAssert
 	}
+
 	o.only = function(subject, predicate, silent) {
 		if (!silent) console.log(
 			highlight("/!\\ WARNING /!\\ o.only() mode") + "\n" + o.cleanStackTrace(ensureStackTrace(new Error)) + "\n",
@@ -50,6 +113,7 @@ else window.o = m()
 		only.push(predicate)
 		o(subject, predicate)
 	}
+
 	o.spy = function(fn) {
 		var spy = function() {
 			spy.this = this
@@ -69,6 +133,7 @@ else window.o = m()
 		spy.callCount = 0
 		return spy
 	}
+
 	o.cleanStackTrace = function(error) {
 		// For IE 10+ in quirks mode, and IE 9- in any mode, errors don't have a stack
 		if (error.stack == null) return ""
@@ -86,13 +151,30 @@ else window.o = m()
 		// now we're in user code (or past the stack end)
 		return stack[i]
 	}
+
 	o.timeout = function(n) {
 		globalTimeout(n)
 	}
+
+	o.addExtension = function(name, handler) {
+		if (isRunning()) throw new Error("please add extensions outside of tests")
+		if (ctx === spec) throw new Error("you can't extend the global scope")
+		if (name in Assert.prototype) throw new Error("attempt at redefining o()." + name + "()")
+		if (ctx["\x01CustomAssert"] == null) {
+			var proto = Object.create(Assert.prototype)
+			Assert = AssertFactory()
+			Assert.prototype = proto
+			ctx["\x01CustomAssert"] = Assert
+		}
+		Assert.prototype[name] = createAssertion(handler)
+	}
+
+	// # Test runner
 	o.run = function(reporter) {
 		results = []
 		start = new Date
-		test(spec, [], [], new Task(function() {
+	
+		var finalizer = new Task(function() {
 			setTimeout(function () {
 				timeoutStackName = getStackName({stack: o.cleanStackTrace(ensureStackTrace(new Error))}, /([\w \.]+?:\d+:\d+)/)
 				if (typeof reporter === "function") reporter(results)
@@ -101,30 +183,63 @@ else window.o = m()
 					if (hasProcess && errCount !== 0) process.exit(1) // eslint-disable-line no-process-exit
 				}
 			})
-		}, null), 200 /*default timeout delay*/)
+		}, null)
 
-		function test(spec, pre, post, finalize, defaultDelay) {
+		runSpec(spec, [], [], finalizer, 200 /*default timeout delay*/)
+
+		function runSpec(spec, beforeEach, afterEach, finalize, defaultDelay) {
+			// stack managed globals
 			var previousAssert = Assert
 			if (spec["\x01CustomAssert"] != null) Assert = spec["\x01CustomAssert"]
-			var restoreParentAssert = new Task(function() {Assert = previousAssert})
 
 			if (hasOwn.call(spec, "\x01specTimeout")) defaultDelay = spec["\x01specTimeout"]
-			pre = [].concat(pre, spec["\x01beforeEach"] || [])
-			post = [].concat(spec["\x01afterEach"] || [], post)
-			series([].concat(spec["\x01before"] || [], Object.keys(spec).reduce(function(tasks, key) {
-				// Skip hooks, and, if in `only` mode tasks.
-				// Always run specs though, in case there is another `only` nested in there.
-				if (key.charCodeAt(0) !== 1 && (only.length === 0 || only.indexOf(spec[key].fn) !== -1 || !(spec[key] instanceof Task))) {
-					tasks.push(new Task(function(done) {
-						o.timeout(Infinity)
-						subjects.push(key)
-						var pop = new Task(function pop() {subjects.pop(), done()}, null)
-						if (spec[key] instanceof Task) series([].concat(pre, spec[key], post, pop), defaultDelay)
-						else test(spec[key], pre, post, pop, defaultDelay)
-					}, null))
-				}
-				return tasks
-			}, []), spec["\x01after"] || [], restoreParentAssert, finalize), defaultDelay)
+
+			var restoreStack = new Task(function() {
+				Assert = previousAssert
+			})
+
+			beforeEach = [].concat(beforeEach, spec["\x01beforeEach"] || [])
+			afterEach = [].concat(spec["\x01afterEach"] || [], afterEach)
+
+			series(
+				[].concat(
+					spec["\x01before"] || [],
+					Object.keys(spec).reduce(function(tasks, key) {
+						if (
+							// Skip the hooks ...
+							key.charCodeAt(0) !== 1
+							&& (
+								// ... and, if in `only` mode, the tasks that are not flagged to run.
+								only.length === 0
+								|| only.indexOf(spec[key].fn) !== -1
+								// Always run specs though, in case there are `only` tests nested in there.
+								|| !(spec[key] instanceof Task)
+							)
+						) {
+							tasks.push(new Task(function(done) {
+								o.timeout(Infinity)
+								subjects.push(key)
+								var popSubjects = new Task(function pop() {subjects.pop(), done()}, null)
+								if (spec[key] instanceof Task) {
+									// this is a test
+									series(
+										[].concat(beforeEach, spec[key], afterEach, popSubjects),
+										defaultDelay
+									)
+								} else {
+									// a spec...
+									runSpec(spec[key], beforeEach, afterEach, popSubjects, defaultDelay)
+								}
+							}, null))
+						}
+						return tasks
+					}, []),
+					spec["\x01after"] || [],
+					restoreStack,
+					finalize
+				),
+				defaultDelay
+			)
 		}
 
 		function series(tasks, defaultDelay) {
@@ -227,19 +342,7 @@ else window.o = m()
 			}
 		}
 	}
-	function unique(subject) {
-		if (hasOwn.call(ctx, subject)) {
-			console.warn("A test or a spec named '" + subject + "' was already defined.")
-			while (hasOwn.call(ctx, subject)) subject += "*"
-		}
-		return subject
-	}
-	function hook(name) {
-		return function(predicate) {
-			if (ctx[name]) throw new Error(name.slice(1) + " should be defined outside of a loop or inside a nested test group.")
-			ctx[name] = new Task(predicate, ensureStackTrace(new Error), name.slice(1))
-		}
-	}
+	// #Assertions
 	function AssertFactory() {
 		return function Assert(value) {
 			this.value = value
@@ -247,19 +350,7 @@ else window.o = m()
 			results.push(this.result)
 		}
 	}
-	var Assert = AssertFactory()
-	o.addExtension = function(name, handler) {
-		if (isRunning()) throw new Error("please add extensions outside of tests")
-		if (ctx === spec) throw new Error("you can't extend the global scope")
-		if (name in Assert.prototype) throw new Error("attempt at redefining o()." + name + "()")
-		if (ctx["\x01CustomAssert"] == null) {
-			var proto = Object.create(Assert.prototype)
-			Assert = AssertFactory()
-			Assert.prototype = proto
-			ctx["\x01CustomAssert"] = Assert
-		}
-		Assert.prototype[name] = createAssertion(handler)
-	}
+
 	function createAssertion(f) {
 		return function(expected) {
 			var self = this
@@ -276,6 +367,7 @@ else window.o = m()
 			}
 		}
 	}
+
 	function define(name, verb, compare) {
 		Assert.prototype[name] = createAssertion(function(actual, expected) {
 			var message = serialize(actual) + "\n  " + verb + "\n" + serialize(expected)
@@ -283,6 +375,7 @@ else window.o = m()
 			else throw message
 		})
 	}
+
 	define("equals", "should equal", function(a, b) {return a === b})
 	define("notEquals", "should not equal", function(a, b) {return a !== b})
 	define("deepEquals", "should deep equal", deepEqual)
@@ -296,6 +389,7 @@ else window.o = m()
 			return true
 		}
 	}
+
 	function deepEqual(a, b) {
 		if (a === b) return true
 		if (a === null ^ b === null || a === undefined ^ b === undefined) return false // eslint-disable-line no-bitwise
@@ -329,6 +423,7 @@ else window.o = m()
 		}
 		return false
 	}
+
 	function throws(a, b){
 		try{
 			a()
@@ -342,49 +437,38 @@ else window.o = m()
 		return false
 	}
 
-	function isRunning() {return results != null}
-	function Task(fn, err, hookName) {
-		this.fn = fn
-		this.err = err
-		this.hookName = hookName
-	}
 	function succeed(result, message) {
 		result.pass = true
 		result.message = message
 	}
+
 	function fail(result, message, error) {
 		result.pass = false
 		result.message = message
 		result.error = error != null ? error : ensureStackTrace(new Error)
 	}
+
 	function serialize(value) {
 		if (hasProcess) return require("util").inspect(value) // eslint-disable-line global-require
 		if (value === null || (typeof value === "object" && !(value instanceof Array)) || typeof value === "number") return String(value)
 		else if (typeof value === "function") return value.name || "<anonymous function>"
 		try {return JSON.stringify(value)} catch (e) {return String(value)}
 	}
-	function noTimeoutRightNow() {
-		throw new Error("o.timeout must be called snchronously from within a test definition or a hook.")
-	}
+
+	// Reporter helpers
 	var colorCodes = {
 		red: "31m",
 		red2: "31;1m",
 		green: "32;1m"
 	}
+
 	function highlight(message, color) {
 		var code = colorCodes[color] || colorCodes.red;
 		return hasProcess ? (process.stdout.isTTY ? "\x1b[" + code + message + "\x1b[0m" : message) : "%c" + message + "%c "
 	}
+
 	function cStyle(color, bold) {
 		return hasProcess||!color ? "" : "color:"+color+(bold ? ";font-weight:bold" : "")
-	}
-	function ensureStackTrace(error) {
-		// mandatory to get a stack in IE 10 and 11 (and maybe other envs?)
-		if (error.stack === undefined) try { throw error } catch(e) {return e}
-		else return error
-	}
-	function getStackName(e, exp) {
-		return e.stack && exp.test(e.stack) ? e.stack.match(exp)[1] : null
 	}
 
 	o.report = function (results) {
@@ -424,15 +508,5 @@ else window.o = m()
 		)
 		return errCount
 	}
-
-	if (hasProcess) {
-		nextTickish = process.nextTick
-	} else {
-		nextTickish = function fakeFastNextTick(next) {
-			if (stack++ < 5000) next()
-			else setTimeout(next, stack = 0)
-		}
-	}
-
 	return o
 })

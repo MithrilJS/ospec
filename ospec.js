@@ -5,25 +5,25 @@ else window.o = m()
 })(function init(name) {
 	// # Setup
 	// const
-	var spec = {}
+	var spec = new Spec()
 	var subjects = []
 	var hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
 	var only = []
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
 
 	// stack-managed globals
-	var ctx = spec
-	var currentTestError = null
+	var globalContext = spec
+	var globalTestError = null
 	var globalTimeout = noTimeoutRightNow
-	var Assert = AssertFactory()
-	var depth = 1
+	var globalAssert = AssertFactory()
+	var globalDepth = 1
 
-	if (name != null) spec[name] = ctx = {}
+	if (name != null) spec.children[name] = globalContext = new Spec()
 
 	// Shared state, set only once, but initialization is delayed
 	var results, start, timeoutStackName
 
-	// # Core helpers
+	// # Task runner helpers and constructors
 	var stack = 0
 	var nextTickish = hasProcess
 		? process.nextTick
@@ -31,6 +31,16 @@ else window.o = m()
 			if (stack++ < 5000) next()
 			else setTimeout(next, stack = 0)
 		}
+
+	function Spec() {
+		this.before = []
+		this.beforeEach = []
+		this.after = []
+		this.afterEach = []
+		this.specTimeout = null
+		this.customAssert = null
+		this.children = {}
+	}
 
 	function Task(fn, err, hookName) {
 		// This test needs to be here rather than in `o("name", test(){})`
@@ -40,7 +50,7 @@ else window.o = m()
 		this.fn = fn
 		this.err = err
 		this.hookName = hookName
-		this.depth = depth
+		this.depth = globalDepth
 	}
 
 	function isRunning() {return results != null}
@@ -57,8 +67,8 @@ else window.o = m()
 
 	function hook(name) {
 		return function(predicate) {
-			if (ctx[name]) throw new Error(name.slice(1) + " should be defined outside of a loop or inside a nested test group.")
-			ctx[name] = new Task(predicate, ensureStackTrace(new Error), name.slice(1))
+			if (globalContext[name].length > 0) throw new Error("Attempt to register o." + name + "() more than once. A spec can only have one hook of each kind.")
+			globalContext[name][0] = new Task(predicate, ensureStackTrace(new Error), name)
 		}
 	}
 
@@ -67,9 +77,9 @@ else window.o = m()
 	}
 
 	function unique(subject) {
-		if (hasOwn.call(ctx, subject)) {
+		if (hasOwn.call(globalContext.children, subject)) {
 			console.warn("A test or a spec named '" + subject + "' was already defined.")
-			while (hasOwn.call(ctx, subject)) subject += "*"
+			while (hasOwn.call(globalContext.children, subject)) subject += "*"
 		}
 		return subject
 	}
@@ -78,38 +88,37 @@ else window.o = m()
 	function o(subject, predicate) {
 		if (predicate === undefined) {
 			if (!isRunning()) throw new Error("Assertions should not occur outside test definitions.")
-			return new Assert(subject)
+			return new globalAssert(subject)
 		} else {
 			subject = String(subject)
-			if (subject.charCodeAt(0) === 1) throw new Error("test names starting with '\\x01' are reserved for internal use.")
-			ctx[unique(subject)] = new Task(predicate, ensureStackTrace(new Error))
+			globalContext.children[unique(subject)] = new Task(predicate, ensureStackTrace(new Error))
 		}
 	}
 
-	o.before = hook("\x01before")
-	o.after = hook("\x01after")
-	o.beforeEach = hook("\x01beforeEach")
-	o.afterEach = hook("\x01afterEach")
+	o.before = hook("before")
+	o.after = hook("after")
+	o.beforeEach = hook("beforeEach")
+	o.afterEach = hook("afterEach")
 
 	o.specTimeout = function (t) {
 		if (isRunning()) throw new Error("o.specTimeout() can only be called before o.run().")
-		if (hasOwn.call(ctx, "\x01specTimeout")) throw new Error("A default timeout has already been defined in this context.")
+		if (globalContext.specTimeout != null) throw new Error("A default timeout has already been defined in this context.")
 		if (typeof t !== "number") throw new Error("o.specTimeout() expects a number as argument.")
-		ctx["\x01specTimeout"] = t
+		globalContext.specTimeout = t
 	}
 
 	o.new = init
 
 	o.spec = function(subject, predicate) {
 		// stack managed globals
-		var previousAssert = Assert
-		var parent = ctx
-		ctx = ctx[unique(subject)] = {}
-		depth++
+		var previousAssert = globalAssert
+		var parent = globalContext
+		globalContext = globalContext.children[unique(subject)] = new Spec()
+		globalDepth++
 		predicate()
-		depth--
-		ctx = parent
-		Assert = previousAssert
+		globalDepth--
+		globalContext = parent
+		globalAssert = previousAssert
 	}
 
 	o.only = function(subject, predicate, silent) {
@@ -165,15 +174,15 @@ else window.o = m()
 
 	o.addExtension = function(name, handler) {
 		if (isRunning()) throw new Error("please add extensions outside of tests")
-		if (ctx === spec) throw new Error("you can't extend the global scope")
-		if (name in Assert.prototype) throw new Error("attempt at redefining o()." + name + "()")
-		if (ctx["\x01CustomAssert"] == null) {
-			var proto = Object.create(Assert.prototype)
-			Assert = AssertFactory()
-			Assert.prototype = proto
-			ctx["\x01CustomAssert"] = Assert
+		if (globalContext === spec) throw new Error("you can't extend the global scope")
+		if (name in globalAssert.prototype) throw new Error("attempt at redefining o()." + name + "()")
+		if (globalContext.customAssert == null) {
+			var proto = Object.create(globalAssert.prototype)
+			globalAssert = AssertFactory()
+			globalAssert.prototype = proto
+			globalContext.customAssert = globalAssert
 		}
-		Assert.prototype[name] = createAssertion(handler)
+		globalAssert.prototype[name] = createAssertion(handler)
 	}
 
 	// # Test runner
@@ -195,53 +204,57 @@ else window.o = m()
 		runSpec(spec, [], [], finalizer, 200 /*default timeout delay*/)
 
 		function runSpec(spec, beforeEach, afterEach, finalize, defaultDelay) {
-			// stack managed globals
-			var previousAssert = Assert
-			if (spec["\x01CustomAssert"] != null) Assert = spec["\x01CustomAssert"]
+			if (spec.specTimeout) defaultDelay = spec.specTimeout
 
-			if (hasOwn.call(spec, "\x01specTimeout")) defaultDelay = spec["\x01specTimeout"]
+			// stack-managed globals
+			var previousAssert = globalAssert
+			if (spec.customAssert != null) globalAssert = spec.customAssert
+
 
 			var restoreStack = new Task(function() {
-				Assert = previousAssert
+				globalAssert = previousAssert
 			})
+			// /stack-managed globals
 
-			beforeEach = [].concat(beforeEach, spec["\x01beforeEach"] || [])
-			afterEach = [].concat(spec["\x01afterEach"] || [], afterEach)
+			beforeEach = [].concat(
+				beforeEach,
+				spec.beforeEach
+			)
+			afterEach = [].concat(
+				spec.afterEach,
+				afterEach
+			)
 
 			series(
 				[].concat(
-					spec["\x01before"] || [],
-					Object.keys(spec).reduce(function(tasks, key) {
+					spec.before,
+					Object.keys(spec.children).reduce(function(tasks, key) {
 						if (
-							// Skip the hooks ...
-							key.charCodeAt(0) !== 1
-							&& (
-								// ... and, if in `only` mode, the tasks that are not flagged to run.
-								only.length === 0
-								|| only.indexOf(spec[key].fn) !== -1
-								// Always run specs though, in case there are `only` tests nested in there.
-								|| !(spec[key] instanceof Task)
-							)
+							// If in `only` mode, skip the tasks that are not flagged to run.
+							only.length === 0
+							|| only.indexOf(spec.children[key].fn) !== -1
+							// Always run specs though, in case there are `only` tests nested in there.
+							|| !(spec.children[key] instanceof Task)
 						) {
 							tasks.push(new Task(function(done) {
 								o.timeout(Infinity)
 								subjects.push(key)
 								var popSubjects = new Task(function pop() {subjects.pop(), done()}, null)
-								if (spec[key] instanceof Task) {
+								if (spec.children[key] instanceof Task) {
 									// this is a test
 									series(
-										[].concat(beforeEach, spec[key], afterEach, popSubjects),
+										[].concat(beforeEach, spec.children[key], afterEach, popSubjects),
 										defaultDelay
 									)
 								} else {
 									// a spec...
-									runSpec(spec[key], beforeEach, afterEach, popSubjects, defaultDelay)
+									runSpec(spec.children[key], beforeEach, afterEach, popSubjects, defaultDelay)
 								}
 							}, null))
 						}
 						return tasks
 					}, []),
-					spec["\x01after"] || [],
+					spec.after,
 					restoreStack,
 					finalize
 				),
@@ -259,7 +272,7 @@ else window.o = m()
 				var task = tasks[cursor++]
 				var fn = task.fn
 				var isHook = task.hookName != null
-				currentTestError = task.err
+				globalTestError = task.err
 				var timeout = 0, delay = defaultDelay, s = new Date
 				var current = cursor
 				var isDone = false
@@ -289,10 +302,10 @@ else window.o = m()
 				// for internal use only
 				function finalizeAsync(err, threw) {
 					if (err == null && !threw) {
-						if (task.err != null) succeed(new Assert().result)
+						if (task.err != null) succeed(new globalAssert().result)
 					} else {
-						if (err instanceof Error) fail(new Assert().result, err.message, err)
-						else fail(new Assert().result, String(err), null)
+						if (err instanceof Error) fail(new globalAssert().result, err.message, err)
+						else fail(new globalAssert().result, String(err), null)
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
 					if (current === cursor) {
@@ -350,7 +363,12 @@ else window.o = m()
 	function AssertFactory() {
 		return function Assert(value) {
 			this.value = value
-			this.result = {pass: null, context: subjects.join(" > "), message: "Incomplete assertion in the test definition starting at...", error: currentTestError, testError: currentTestError}
+			this.result = {
+				pass: null,
+				context: subjects.join(" > "),
+				message: "Incomplete assertion in the test definition starting at...",
+				error: globalTestError, testError: globalTestError
+			}
 			results.push(this.result)
 		}
 	}
@@ -373,7 +391,7 @@ else window.o = m()
 	}
 
 	function define(name, verb, compare) {
-		Assert.prototype[name] = createAssertion(function(actual, expected) {
+		globalAssert.prototype[name] = createAssertion(function(actual, expected) {
 			var message = serialize(actual) + "\n  " + verb + "\n" + serialize(expected)
 			if (compare(actual, expected)) return message
 			else throw message

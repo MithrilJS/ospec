@@ -40,45 +40,22 @@ console.log("without comments: ", sequence(/^/, prologue(/ */), capture(argName)
 // ------------------------------------------------------------ //
 // tests and output if all green
 
-const o = require("ospec")
-
-const test = (input) => (doneMatcher.exec(input)||[]).pop()
-
-o("done parser", () => {
-	o(
-		test("function(done)")
-	).equals("done")
-
-	o(
-		test("function (done)")
-	).equals("done")
-
-	o(
-		test("function foo(done)")
-	).equals("done")
-
-	o(
-		test("function foo (done)")
-	).equals("done")
-
-	o(
-		test(`function /**/ /* foo */ //hoho
+const tests = [
+	["function(done)", "done"],
+	["function (done)", "done"],
+	["function foo(done)", "done"],
+	["function foo (done)", "done"],
+	[`function /**/ /* foo */ //hoho
 			/*
 			bar */
 			//baz
-			(done)`)
-	).equals("done")
-
-	o(
-		test(`function/**/ /* foo */ //hoho
+			(done)`, "done"],
+	[`function/**/ /* foo */ //hoho
 			/*
 			bar */
 			//baz
-			foo(done)`)
-	).equals("done")
-
-	o(
-		test(`function/**/ /* foo */ //hoho
+			foo(done)`, "done"],
+	[`function/**/ /* foo */ //hoho
 			/*
 			bar */
 			//baz
@@ -86,59 +63,26 @@ o("done parser", () => {
 			/*
 			bar */
 			//baz
-			(done)`)
-	).equals("done")
-
-	o(
-		test("function(done, timeout)")
-	).equals("done")
-
-	o(
-		test("function (done, timeout)")
-	).equals("done")
-
-	o(
-		test("function foo(done, timeout)")
-	).equals("done")
-
-	o(
-		test("function foo (done, timeout)")
-	).equals("done")
-
-	o(
-		test("function( done, timeout)")
-	).equals("done")
-
-	o(
-		test("function ( done, timeout)")
-	).equals("done")
-
-	o(
-		test("function foo( done, timeout)")
-	).equals("done")
-
-	o(
-		test("function foo ( done, timeout)")
-	).equals("done")
-
-	o(
-		test(`function /**/ /* foo */ //hoho
+			(done)`, "done"],
+	["function(done, timeout)", "done"],
+	["function (done, timeout)", "done"],
+	["function foo(done, timeout)", "done"],
+	["function foo (done, timeout)", "done"],
+	["function( done, timeout)", "done"],
+	["function ( done, timeout)", "done"],
+	["function foo( done, timeout)", "done"],
+	["function foo ( done, timeout)", "done"],
+	[`function /**/ /* foo */ //hoho
 			/*
 			bar */
 			//baz
-			( done, timeout)`)
-	).equals("done")
-
-	o(
-		test(`function/**/ /* foo */ //hoho
+			( done, timeout)`, "done"],
+	[`function/**/ /* foo */ //hoho
 			/*
 			bar */
 			//baz
-			foo(done, timeout)`)
-	).equals("done")
-
-	o(
-		test(`function/**/ /* foo */ //hoho
+			foo(done, timeout)`, "done"],
+	[`function/**/ /* foo */ //hoho
 			/*
 			bar */
 			//baz
@@ -150,66 +94,42 @@ o("done parser", () => {
 				/*
 				bar */
 				//baz
-			done, timeout)`)
-	).equals("done")
-
-	o(
-		test("( done ) => ")
-	).equals("done")
-
-	o(
-		test("( done/**/, define) => ")
-	).equals("done")
-
-	o(
-		test("( done, define) => ")
-	).equals("done")
-
-	o(
-		test("( done , define) => ")
-	).equals("done")
-
-	o(
-		test(`(//foo
+			done, timeout)`, "done"],
+	["( done ) => ", "done"],
+	["( done/**/, define) => ", "done"],
+	["( done, define) => ", "done"],
+	["( done , define) => ", "done"],
+	[`(//foo
 				/*
 				*/done//more comment
 				/* and then some
-				*/) => `
+				*/) => `, "done"],
+	["done =>", "done"],
+	["done=>", "done"],
+	["done /* foo */=>", "done"],
+	["done/* foo */ =>", "done"],
+	["done /* foo */ /*bar*/ =>", "done"],
+	["function$dada =>", "function$dada"],
+	["(function$dada) =>", "function$dada"],
+	["function(function$dada) {", "function$dada"],
+]
+
+
+let ok = true;
+
+tests.forEach(([candidate, expected]) => {
+	if ((doneMatcher.exec(candidate)||[]).pop() !== expected) {
+		ok = false
+		console.log(
+			`parsing \n\n\t${
+				candidate
+			}\n\nresulted in ${
+				JSON.stringify(((doneMatcher.exec(candidate)||[]).pop()))
+			}, not ${
+				JSON.stringify(expected)
+			} as expected\n`
 		)
-	).equals("done")
-
-	o(
-		test("done =>")
-	).equals("done")
-
-	o(
-		test("done=>")
-	).equals("done")
-
-	o(
-		test("done /* foo */=>")
-	).equals("done")
-
-	o(
-		test("done/* foo */ =>")
-	).equals("done")
-
-	o(
-		test("done /* foo */ /*bar*/ =>")
-	).equals("done")
-
-	o(
-		test("function$dada =>")
-	).equals("function$dada")
-
-	o(
-		test("(function$dada) =>")
-	).equals("function$dada")
-	o(
-		test("function(function$dada) {")
-	).equals("function$dada")
+	}
 })
 
-o.run((results) => {
-	if (o.report(results) === 0) console.log(`Paste this:\n\n${doneMatcher}\n`)
-})
+if (ok) console.log(`Paste this:\n\n${doneMatcher}\n`)

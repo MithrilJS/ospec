@@ -17,6 +17,7 @@ else window.o = m()
 	var globalTimeout = noTimeoutRightNow
 	var globalAssert = AssertFactory()
 	var globalDepth = 1
+	var globalBail
 
 	if (name != null) spec.children[name] = globalContext = new Spec()
 
@@ -207,15 +208,20 @@ else window.o = m()
 		runSpec(spec, [], [], finalizer, 200 /*default timeout delay*/)
 
 		function runSpec(spec, beforeEach, afterEach, finalize, defaultDelay) {
+			var bailed = false
 			if (spec.specTimeout) defaultDelay = spec.specTimeout
 
 			// stack-managed globals
 			var previousAssert = globalAssert
 			if (spec.customAssert != null) globalAssert = spec.customAssert
 
+			var previousBail = globalBail
+			globalBail = function() {bailed = true}
+
 
 			var restoreStack = new Task(function() {
 				globalAssert = previousAssert
+				globalBail = previousBail
 			})
 			// /stack-managed globals
 
@@ -240,6 +246,7 @@ else window.o = m()
 							|| !(spec.children[key] instanceof Task)
 						) {
 							tasks.push(new Task(function(done) {
+								if (bailed) return done()
 								o.timeout(Infinity)
 								subjects.push(key)
 								var popSubjects = new Task(function pop() {subjects.pop(), done()}, null)
@@ -293,31 +300,34 @@ else window.o = m()
 				if (isHook) {
 					subjects.push("[[ o."+ task.hookName + Array.apply(null, {length: task.depth}).join("*") + " ]]")
 				}
-
 				// public API, may only be called once from use code (or after returned Promise resolution)
 				function done(err) {
 					if (!isDone) isDone = true
 					else throw new Error("'" + arg + "()' should only be called once.")
 					if (isAsync && timeout === undefined) console.warn("# elapsed: " + Math.round(new Date - s) + "ms, expected under " + delay + "ms\n" + o.cleanStackTrace(task.err))
-					if (!isFinalized) finalize(err, arguments.length !== 0)
+					if (!isFinalized) finalize(err, arguments.length !== 0, false)
 				}
 				// for internal use only
-				function finalize(err, threw) {
-					if (isFinalized) throw new Error("Multiple finalization")
+				function finalize(err, threw, isTimeout) {
+					if (isFinalized) {
+						throw new Error("Multiple finalization")
+					}
 					isFinalized = true
 					if (threw) {
 						if (err instanceof Error) fail(new globalAssert().result, err.message, err)
 						else fail(new globalAssert().result, String(err), null)
+						if (!isTimeout) globalBail()
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
 					if (isHook) subjects.pop()
-					if (isAsync) next()
-					else nextTickish(next)
+					if (isAsync) {
+						next()
+					} else nextTickish(next)
 				}
 				function startTimer() {
 					timeout = setTimeout(function() {
 						timeout = undefined
-						finalize("async test timed out after " + delay + "ms", true)
+						finalize("async test timed out after " + delay + "ms", true, true)
 					}, Math.min(delay, 2147483647))
 				}
 				try {
@@ -350,13 +360,13 @@ else window.o = m()
 								startTimer()
 							}
 						} else {
-							finalize(null, false)
+							finalize(null, false, false)
 						}
 					}
 				}
 				catch (e) {
 					if (isInternal(task) || e === doneError) throw e
-					else finalize(e, true)
+					else finalize(e, true, false)
 				}
 				globalTimeout = noTimeoutRightNow
 			}

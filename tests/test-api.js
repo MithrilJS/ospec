@@ -591,7 +591,7 @@ o.spec("ospec", function() {
 			oo.spec("a spec", function() {
 				o(oTimeout).throws(Error)
 			})
-			oo("", function() {
+			oo("some test", function() {
 				o(oTimeout).notThrows(Error)
 				return {then: function(f) {setTimeout(f)}}
 			})
@@ -1225,6 +1225,173 @@ o.spec("extensions", function() {
 			o(results[2].message).equals("FAILURE")
 
 			o(results[3].pass).equals(true)
+
+			done()
+		})
+	})
+})
+o.spec("throwing bails out of the current spec", function() {
+	o("Two tests. Throwing in the first causes the second not to run", function(done) {
+		var before = o.spy()
+		var after = o.spy()
+		var beforeEach = o.spy()
+		var afterEach = o.spy()
+		var secondTest = o.spy()
+
+		var oo = lib.new()
+
+		oo.before(before)
+		oo.after(after)
+		oo.beforeEach(beforeEach)
+		oo.afterEach(afterEach)
+
+		oo("throws", function(){
+			throw "FOOO"
+		})
+		oo("skipped", secondTest)
+
+		oo.run(function(results) {
+			o(results.length).equals(1)
+			o(results[0].pass).equals(false)
+
+			o(before.callCount).equals(1)
+			o(after.callCount).equals(1)
+			o(beforeEach.callCount).equals(1)
+			o(afterEach.callCount).equals(1)
+
+			o(secondTest.callCount).equals(0)
+
+			done()
+		})
+	})
+	o("Two tests, the second one nested in a spec. Throwing in the first causes the second not to run", function(done) {
+		var before = o.spy()
+		var after = o.spy()
+		var beforeEach = o.spy()
+		var afterEach = o.spy()
+
+		var before2 = o.spy()
+		var after2 = o.spy()
+		var beforeEach2 = o.spy()
+		var afterEach2 = o.spy()
+
+		var secondTest = o.spy()
+
+		var oo = lib.new()
+
+		oo.before(before)
+		oo.after(after)
+		oo.beforeEach(beforeEach)
+		oo.afterEach(afterEach)
+
+		oo("throws", function(){
+			throw "FOOO"
+		})
+		oo.spec("nested", function() {
+			oo.before(before2)
+			oo.after(after2)
+			oo.beforeEach(beforeEach2)
+			oo.afterEach(afterEach2)
+
+			oo("skipped", secondTest)
+		})
+
+		oo.run(function(results) {
+			o(results.length).equals(1)
+			o(results[0].pass).equals(false)
+
+			o(before.callCount).equals(1)
+			o(after.callCount).equals(1)
+			o(beforeEach.callCount).equals(1)
+			o(afterEach.callCount).equals(1)
+
+			o(before2.callCount).equals(0)
+			o(after2.callCount).equals(0)
+			o(beforeEach2.callCount).equals(0)
+			o(afterEach2.callCount).equals(0)
+
+			o(secondTest.callCount).equals(0)
+
+			done()
+		})
+	})
+	o("Two tests, the first one nested in a spec. Throwing in the first doesn't causes the second not to run", function(done) {
+		var before = o.spy()
+		var after = o.spy()
+		var beforeEach = o.spy()
+		var afterEach = o.spy()
+
+		var before2 = o.spy()
+		var after2 = o.spy()
+		var beforeEach2 = o.spy()
+		var afterEach2 = o.spy()
+
+		var secondTest = o.spy()
+
+		var oo = lib.new()
+
+		oo.before(before)
+		oo.after(after)
+		oo.beforeEach(beforeEach)
+		oo.afterEach(afterEach)
+
+		oo.spec("nested", function() {
+			oo.before(before2)
+			oo.after(after2)
+			oo.beforeEach(beforeEach2)
+			oo.afterEach(afterEach2)
+			oo("throws", function(){
+				throw "FOOO"
+			})
+
+		})
+		oo("runs", secondTest)
+
+		oo.run(function(results) {
+			o(results.length).equals(1)
+			o(results[0].pass).equals(false)
+
+			o(before.callCount).equals(1)
+			o(after.callCount).equals(1)
+			o(beforeEach.callCount).equals(2)
+			o(afterEach.callCount).equals(2)
+
+			o(before2.callCount).equals(1)
+			o(after2.callCount).equals(1)
+			o(beforeEach2.callCount).equals(1)
+			o(afterEach2.callCount).equals(1)
+
+			o(secondTest.callCount).equals(1)
+
+			done()
+		})
+	})
+	o("throwing in the before hook causes the tests of the spec not to run", function(done) {
+		var after = o.spy()
+		var beforeEach = o.spy()
+		var afterEach = o.spy()
+
+		var test = o.spy()
+
+		var oo = lib.new()
+		oo.before(function(){
+			throw "HAHA!"
+		})
+		oo.after(after)
+		oo.beforeEach(beforeEach)
+		oo.afterEach(afterEach)
+
+		oo("skipped", test)
+
+		oo.run(function(results) {
+			o(results.length).equals(1)
+			o(results[0].pass).equals(false)
+
+			o(after.callCount).equals(1)
+			o(beforeEach.callCount).equals(0)
+			o(afterEach.callCount).equals(0)
+
+			o(test.callCount).equals(0)
 
 			done()
 		})

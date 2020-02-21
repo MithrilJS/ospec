@@ -281,9 +281,7 @@ o.spec("ospec", function() {
 				}
 			}
 
-			var reservedTestNameTrows = false
 			var oo = lib.new()
-			var spyReserved = o.spy()
 			var spyHookHook = o.spy()
 			var spyHookTest = o.spy()
 			var spyTestHook = o.spy()
@@ -294,7 +292,6 @@ o.spec("ospec", function() {
 				try {oo.beforeEach(spyHookHook)} catch (e) {nestedThrows.hook.hook = true}
 			})
 
-			try {oo("\x01reserved test name", spyReserved)} catch (e) {reservedTestNameTrows = true}
 
 			oo("test", function() {
 				try {oo("illegal nested test", spyTestTest)} catch (e) {nestedThrows.test.test = true}
@@ -302,14 +299,13 @@ o.spec("ospec", function() {
 			})
 
 			oo.run(function(){
-				o(spyReserved.callCount).equals(0)
+
 				o(spyHookHook.callCount).equals(0)
 				o(spyHookTest.callCount).equals(0)
 				o(spyTestHook.callCount).equals(0)
 				o(spyTestTest.callCount).equals(0)
 
 				o({nestedThrows:nestedThrows}).deepEquals({nestedThrows: expectedTrows})
-				o(reservedTestNameTrows).equals(true)
 
 				done()
 			})
@@ -915,7 +911,7 @@ o.spec("ospec", function() {
 	})
 })
 o.spec("the done parser", function() {
-	o("accepts non-English names", function() {
+	o("accepts non-English names", function(done) {
 		var oo = lib.new()
 		var threw = false
 		oo("test", function(完了) {
@@ -926,12 +922,13 @@ o.spec("the done parser", function() {
 			oo.run(function(results){
 				o(results.length).equals(2)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+				done()
 			})
 		} catch(e) {threw = e.stack}
 
 		o(threw).equals(false)
 	})
-	o("tolerates comments with an ES5 function expression and a timeoout parameter", function() {
+	o("tolerates comments with an ES5 function expression and a timeout parameter", function(done) {
 		var oo = lib.new()
 		var threw = false
 		oo("test", function(/*hey
@@ -948,13 +945,14 @@ o.spec("the done parser", function() {
 			oo.run(function(results){
 				o(results.length).equals(2)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+				done()
 			})
 		} catch(e) {threw = e.stack}
 
 		o(threw).equals(false)
 	})
 	/*eslint-disable no-eval*/
-	o("tolerates comments with an ES5 function expression and no timeoout parameter, unix-style line endings", function() {
+	o("tolerates comments with an ES5 function expression and no timeoout parameter, unix-style line endings", function(done) {
 		var oo = lib.new()
 		var threw = false
 		oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {oo(true).equals(true);done()})"))
@@ -962,12 +960,13 @@ o.spec("the done parser", function() {
 			oo.run(function(results){
 				o(results.length).equals(2)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+				done()
 			})
 		} catch(e) {threw = e.stack}
 
 		o(threw).equals(false)
 	})
-	o("tolerates comments with an ES5 function expression and no timeoout parameter, windows-style line endings", function() {
+	o("tolerates comments with an ES5 function expression and no timeoout parameter, windows-style line endings", function(done) {
 		var oo = lib.new()
 		var threw = false
 		oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {oo(true).equals(true);done()})"))
@@ -975,6 +974,7 @@ o.spec("the done parser", function() {
 			oo.run(function(results){
 				o(results.length).equals(2)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+				done()
 			})
 		} catch(e) {threw = e.stack}
 
@@ -985,7 +985,7 @@ o.spec("the done parser", function() {
 			f = f.toString()
 			return f.slice(f.indexOf("/*") + 2, f.lastIndexOf("*/"))
 		}
-		o("has no false positives 1", function(){
+		o("has no false positives 1", function(done){
 			var oo = lib.new()
 			var threw = false
 			eval(getCommentContent(function(){/*
@@ -1001,12 +1001,13 @@ o.spec("the done parser", function() {
 				oo.run(function(results){
 					o(results.length).equals(2)
 					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+					done()
 				})
 			} catch(e) {threw = e.stack}
 
 			o(threw).equals(false)
 		})
-		o("has no false positives 2", function(){
+		o("has no false positives 2", function(done){
 			var oo = lib.new()
 			var threw = false
 			eval(getCommentContent(function(){/*
@@ -1022,6 +1023,7 @@ o.spec("the done parser", function() {
 				oo.run(function(results){
 					o(results.length).equals(2)
 					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+					done()
 				})
 			} catch(e) {threw = e.stack}
 
@@ -1081,7 +1083,7 @@ o.spec("the done parser", function() {
 			o(reporterRan).equals(false)
 			o(threw).equals(true)
 		})
-		o("works with a literal that has parentheses but no spaces", function(){
+		o("works with a literal that has parentheses but no spaces", function(done){
 			var oo = lib.new()
 			var threw = false
 			eval(getCommentContent(function(){/*
@@ -1097,6 +1099,7 @@ o.spec("the done parser", function() {
 				oo.run(function(results){
 					o(results.length).equals(2)
 					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+					done()
 				})
 			} catch(e) {threw = e.stack}
 			o(threw).equals(false)

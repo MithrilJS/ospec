@@ -53,6 +53,9 @@ else window.o = m()
 		this.depth = globalDepth
 	}
 
+	function isInternal(task) {
+		return task.err == null
+	}
 	function isRunning() {return results != null}
 
 	function ensureStackTrace(error) {
@@ -273,9 +276,10 @@ else window.o = m()
 				var fn = task.fn
 				var isHook = task.hookName != null
 				globalTestError = task.err
-				var timeout = 0, delay = defaultDelay, s = new Date
-				var current = cursor
+				var timeout, delay = defaultDelay, s = new Date
 				var isDone = false
+				var isAsync = false
+				var isFinalized = false
 				// reuse `next` as a private sentinel. A default of `undefined`
 				// derails the `doneError === e` test at the end of this function
 				var doneError = next
@@ -294,32 +298,26 @@ else window.o = m()
 				function done(err) {
 					if (!isDone) isDone = true
 					else throw new Error("'" + arg + "()' should only be called once.")
-					if (timeout === undefined) console.warn("# elapsed: " + Math.round(new Date - s) + "ms, expected under " + delay + "ms\n" + o.cleanStackTrace(task.err))
-					// for now, tolerate done(null) and done(undefined)
-					// since this has worked since day 1
-					finalizeAsync(err)
+					if (isAsync && timeout === undefined) console.warn("# elapsed: " + Math.round(new Date - s) + "ms, expected under " + delay + "ms\n" + o.cleanStackTrace(task.err))
+					if (!isFinalized) finalize(err, arguments.length !== 0)
 				}
 				// for internal use only
-				function finalizeAsync(err, threw) {
-					if (err == null && !threw) {
-						if (task.err != null) succeed(new globalAssert().result)
-					} else {
+				function finalize(err, threw) {
+					if (isFinalized) throw new Error("Multiple finalization")
+					isFinalized = true
+					if (threw) {
 						if (err instanceof Error) fail(new globalAssert().result, err.message, err)
 						else fail(new globalAssert().result, String(err), null)
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
-					if (current === cursor) {
-						// TODO: figure out a way to test that this works properly in async contexts
-						// this probably isn't... The way current is defined and cursor is incremented
-						// will have to be revisited
-						if (isHook) subjects.pop()
-						next()
-					}
+					if (isHook) subjects.pop()
+					if (isAsync) next()
+					else nextTickish(next)
 				}
 				function startTimer() {
 					timeout = setTimeout(function() {
 						timeout = undefined
-						finalizeAsync("async test timed out after " + delay + "ms")
+						finalize("async test timed out after " + delay + "ms", true)
 					}, Math.min(delay, 2147483647))
 				}
 				try {
@@ -336,24 +334,29 @@ else window.o = m()
 						}
 						fn(done, globalTimeout)
 						// This may already be undefined if done() was called synchronously
-						if (timeout === 0) {
+						if (!isFinalized) {
+							isAsync = true
 							startTimer()
 						}
 					} else {
 						var p = fn()
 						if (p && p.then) {
+							// use `done`, not `finalize` here to defend against badly behaved thenables
 							p.then(function() { done() }, done)
-							startTimer()
+							// This may already be undefined if done() was called synchronously in a
+							// non-promise thenable
+							if (!isFinalized) {
+								isAsync = true
+								startTimer()
+							}
 						} else {
-							if (isHook) subjects.pop()
-							nextTickish(next)
+							finalize(null, false)
 						}
 					}
 				}
 				catch (e) {
-					if (task.err != null && e !== doneError) finalizeAsync(e, true)
-					// The errors of internal tasks (which don't have an err) are ospec bugs and must be rethrown.
-					else throw e
+					if (isInternal(task) || e === doneError) throw e
+					else finalize(e, true)
 				}
 				globalTimeout = noTimeoutRightNow
 			}

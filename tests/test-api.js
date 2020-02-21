@@ -470,14 +470,7 @@ o.spec("ospec", function() {
 			})
 
 			oo.run(function(results) {
-				// every done() call generates an assertion.
-				// 1 times for before, after and each of the two tests
-				// 2 times for beforeEach and afterEach
-				// (1 x 4) + (2 x 2) = 8
-				o(results.length).equals(8)
-				results.forEach(function(result) {
-					o(result.pass).equals(true)(stringify(result))
-				})
+				o(results.length).equals(0)
 				finished()
 			})
 		})
@@ -589,19 +582,22 @@ o.spec("ospec", function() {
 	o.spec("o.timeout", function() {
 		o("throws when called out of test definitions", function(done) {
 			var oo = lib.new()
-			var count = 0
-			try { oo.timeout(1) } catch (e) { count++ }
+			var oTimeout = o.spy(function(){
+				oo.timeout(30)
+			})
+
+			o(oTimeout).throws(Error)
+
 			oo.spec("a spec", function() {
-				try { oo.timeout(1) } catch (e) { count++ }
+				o(oTimeout).throws(Error)
 			})
 			oo("", function() {
-				oo.timeout(30)
+				o(oTimeout).notThrows(Error)
 				return {then: function(f) {setTimeout(f)}}
 			})
 			oo.run(function(result) {
-				o(result.length).equals(1)
-				o(result[0].pass).equals(true)
-				o(count).equals(2)
+				o(result.length).equals(0)
+				o(oTimeout.callCount).equals(3)
 
 				done()
 			})
@@ -625,17 +621,20 @@ o.spec("ospec", function() {
 	})
 	o.spec("o.specTimeout", function() {
 		o("throws when called inside of test definitions", function(done) {
-			var err
 			var oo = lib.new()
+
+			var oSpecTimeout = o.spy(function(){
+				oo.specTimeout(5)
+			})
+
 			oo("", function() {
-				try { oo.specTimeout(5) } catch (e) {err = e}
+
+				o(oSpecTimeout).throws(Error)
+
 				return {then: function(f) {setTimeout(f)}}
 			})
 			oo.run(function(result) {
-				o(result.length).equals(1)
-				o(result[0].pass).equals(true)
-				o(err instanceof Error).equals(true)
-
+				o(result.length).equals(0)
 				done()
 			})
 		})
@@ -756,8 +755,7 @@ o.spec("ospec", function() {
 				o(err.message).equals("'oodone()' should only be called once.")
 			})
 			oo.run(function(results) {
-				o(results.length).equals(1)
-				o(results[0].pass).equals(true)
+				o(results.length).equals(0)
 				done()
 			})
 		})
@@ -775,8 +773,7 @@ o.spec("ospec", function() {
 				o(err.message).equals("'oodone()' should only be called once.")
 			})
 			oo.run(function(results) {
-				o(results.length).equals(1)
-				o(results[0].pass).equals(true)
+				o(results.length).equals(0)
 				done()
 			})
 		})
@@ -883,8 +880,7 @@ o.spec("ospec", function() {
 			})
 		})
 		oo.run(function(results) {
-			o(results.length).equals(5)
-			results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+			o(results.length).equals(0)
 			o(ran).equals(true)
 
 			done()
@@ -920,7 +916,7 @@ o.spec("the done parser", function() {
 		})
 		try {
 			oo.run(function(results){
-				o(results.length).equals(2)
+				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
@@ -943,7 +939,7 @@ o.spec("the done parser", function() {
 		})
 		try {
 			oo.run(function(results){
-				o(results.length).equals(2)
+				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
@@ -958,7 +954,7 @@ o.spec("the done parser", function() {
 		oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {oo(true).equals(true);done()})"))
 		try {
 			oo.run(function(results){
-				o(results.length).equals(2)
+				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
@@ -972,7 +968,7 @@ o.spec("the done parser", function() {
 		oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {oo(true).equals(true);done()})"))
 		try {
 			oo.run(function(results){
-				o(results.length).equals(2)
+				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
@@ -999,7 +995,7 @@ o.spec("the done parser", function() {
 			*/}))
 			try {
 				oo.run(function(results){
-					o(results.length).equals(2)
+					o(results.length).equals(1)
 					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 					done()
 				})
@@ -1021,7 +1017,7 @@ o.spec("the done parser", function() {
 			*/}))
 			try {
 				oo.run(function(results){
-					o(results.length).equals(2)
+					o(results.length).equals(1)
 					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 					done()
 				})
@@ -1097,7 +1093,7 @@ o.spec("the done parser", function() {
 			*/}))
 			try {
 				oo.run(function(results){
-					o(results.length).equals(2)
+					o(results.length).equals(1)
 					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 					done()
 				})

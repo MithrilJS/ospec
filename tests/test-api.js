@@ -11,7 +11,7 @@ function stringify(x) {
 if (typeof require !== "undefined") {
 	/* eslint-disable global-require */
 	o = lib = require("../ospec")
-	o = require("ospec")
+	o =	 require("ospec")
 	/* eslint-enable global-require */
 } else {
 	o = lib = window.o
@@ -214,25 +214,31 @@ o.spec("reporting", function() {
 
 		function makeError(msg) {try{throw msg ? new Error(msg) : new Error} catch(e){return e}}
 		try {
-			var errCount = oo.report([{pass: true}, {pass: true}])
+			var results = [{pass: true}, {pass: true}]
+			results.bailCount = results.asyncSuccesses = 0
+			var errCount = oo.report(results)
 
 			o(errCount).equals(0)
 			o(console.log.callCount).equals(1)
 			o(console.error.callCount).equals(0)
 
-			errCount = oo.report([
+			results = [
 				{pass: false, error: makeError("hey"), message: "hey"}
-			])
+			]
+			results.bailCount = results.asyncSuccesses = 0
+			errCount = oo.report(results)
 
 			o(errCount).equals(1)
 			o(console.log.callCount).equals(2)
 			o(console.error.callCount).equals(1)
 
-			errCount = oo.report([
+			results = [
 				{pass: false, error: makeError("hey"), message: "hey"},
 				{pass: true},
 				{pass: false, error: makeError("ho"), message: "ho"}
-			])
+			]
+			results.bailCount = results.asyncSuccesses = 0
+			errCount = oo.report(results)
 
 			o(errCount).equals(2)
 			o(console.log.callCount).equals(3)
@@ -240,7 +246,6 @@ o.spec("reporting", function() {
 		} catch (e) {
 			o(1).equals(0)("Error while testing the reporter " + e.stack)
 		}
-
 		console.log = log
 		console.error = error
 	})

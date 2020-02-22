@@ -1,5 +1,4 @@
 "use strict"
-
 /*
 Ospec is made of four parts:
 
@@ -41,7 +40,6 @@ else window.o = m()
 	var results, start, timeoutStackName
 
 	// # General utils
-
 	function isRunning() {return results != null}
 
 	function ensureStackTrace(error) {
@@ -123,9 +121,18 @@ else window.o = m()
 	o.spec = function(subject, predicate) {
 		// stack managed globals
 		var parent = globalContext
-		globalContext = globalContext.children[unique(subject)] = new Spec()
+		var name = unique(subject)
+		globalContext = globalContext.children[name] = new Spec()
 		globalDepth++
-		predicate()
+		try {
+			predicate()
+		} catch(e) {
+			globalContext.children[name] = new Task(function(){})
+			globalContext.children[name + "  >>> BAILED OUT <<<"] = new Task(function(){
+				o().satisfies(function(){throw e})
+				results.bailCount++
+			}, ensureStackTrace(new Error))
+		}
 		globalDepth--
 		globalContext = parent
 	}
@@ -139,30 +146,10 @@ else window.o = m()
 		o(subject, predicate)
 	}
 
-	o.spy = function(fn) {
-		var spy = function() {
-			spy.this = this
-			spy.args = [].slice.call(arguments)
-			spy.calls.push({this: this, args: spy.args})
-			spy.callCount++
-
-			if (fn) return fn.apply(this, arguments)
-		}
-		if (fn)
-			Object.defineProperties(spy, {
-				length: {value: fn.length},
-				name: {value: fn.name}
-			})
-		spy.args = []
-		spy.calls = []
-		spy.callCount = 0
-		return spy
-	}
-
 	o.cleanStackTrace = function(error) {
 		// For IE 10+ in quirks mode, and IE 9- in any mode, errors don't have a stack
 		if (error.stack == null) return ""
-		var i = 0, header = error.message ? error.name + ": " + error.message : error.name, stack
+		var header = error.message ? error.name + ": " + error.message : error.name, stack
 		// some environments add the name and message to the stack trace
 		if (error.stack.indexOf(header) === 0) {
 			stack = error.stack.slice(header.length).split(/\r?\n/)
@@ -172,9 +159,7 @@ else window.o = m()
 		}
 		if (ospecFileName == null) return stack.join("\n")
 		// skip ospec-related entries on the stack
-		while (stack[i] != null && stack[i].indexOf(ospecFileName) !== -1) i++
-		// now we're in user code (or past the stack end)
-		return stack[i]
+		return stack.filter(function(line) { return line.indexOf(ospecFileName) === -1 }).join("\n")
 	}
 
 	o.timeout = function(n) {
@@ -193,9 +178,11 @@ else window.o = m()
 	function isInternal(task) {
 		return task.err == null
 	}
-	
+
 	o.run = function(reporter) {
 		results = []
+		results.bailCount = 0
+		results.asyncSuccesses = 0
 		start = new Date
 
 		var finalizer = new Task(function() {
@@ -218,7 +205,7 @@ else window.o = m()
 			// stack-managed globals
 
 			var previousBail = globalBail
-			globalBail = function() {bailed = true}
+			globalBail = function() {bailed = true; results.bailCount++}
 
 
 			var restoreStack = new Task(function() {
@@ -320,6 +307,7 @@ else window.o = m()
 				}
 				// for internal use only
 				function finalize(err, threw, isTimeout) {
+					if (isAsync && err == null && task.err != null && !isTimeout) {results.asyncSuccesses++}
 					if (isFinalized) {
 						throw new Error("Multiple finalization")
 					}
@@ -327,7 +315,7 @@ else window.o = m()
 					if (threw) {
 						if (err instanceof Error) fail(new Assertion().result, err.message, err)
 						else fail(new Assertion().result, String(err), null)
-						if (!isTimeout) globalBail()
+						if (!isTimeout) {globalBail()}
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
 					if (isAsync) {
@@ -383,6 +371,7 @@ else window.o = m()
 			}
 		}
 	}
+
 	// #Assertions
 	function Assertion(value) {
 		this.value = value
@@ -513,6 +502,26 @@ else window.o = m()
 		try {return JSON.stringify(value)} catch (e) {return String(value)}
 	}
 
+	o.spy = function(fn) {
+		var spy = function() {
+			spy.this = this
+			spy.args = [].slice.call(arguments)
+			spy.calls.push({this: this, args: spy.args})
+			spy.callCount++
+
+			if (fn) return fn.apply(this, arguments)
+		}
+		if (fn)
+			Object.defineProperties(spy, {
+				length: {value: fn.length},
+				name: {value: fn.name}
+			})
+		spy.args = []
+		spy.calls = []
+		spy.callCount = 0
+		return spy
+	}
+
 	// Reporter helpers
 	var colorCodes = {
 		red: "31m",
@@ -530,7 +539,7 @@ else window.o = m()
 	}
 
 	o.report = function (results) {
-		var errCount = 0
+		var errCount = -results.bailCount
 		for (var i = 0, r; r = results[i]; i++) {
 			if (r.pass == null) {
 				r.testError.stack = r.message + "\n" + o.cleanStackTrace(r.testError)
@@ -554,17 +563,32 @@ else window.o = m()
 			}
 		}
 		var pl = results.length === 1 ? "" : "s"
-		var resultSummary = (errCount === 0) ?
-			highlight((pl ? "All " : "The ") + results.length + " assertion" + pl + " passed", "green"):
-			highlight(errCount + " out of " + results.length + " assertion" + pl + " failed", "red2")
-		var runningTime = " in " + Math.round(Date.now() - start) + "ms"
 
-		console.log(
-			(hasProcess ? "––––––\n" : "") +
-			(name ? name + ": " : "") + resultSummary + runningTime,
-			cStyle((errCount === 0 ? "green" : "red"), true), ""
-		)
-		return errCount
+		var oldTotal = " (old style total: " + (results.length + results.asyncSuccesses) + ")"
+		var total = results.length - results.bailCount
+		var message = [], log = []
+
+		if (errCount === 0 && results.bailCount === 0) {
+			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal, "green"))
+			log.push(cStyle("green" , true))
+		} else if (errCount === 0) {
+			message.push((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal)
+		} else {
+			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed" + oldTotal, "red2"))
+			log.push(cStyle("red" , true))
+		}
+		if (results.bailCount !== 0) {
+			message.unshift(highlight("Bailed out " + results.bailCount + (results.bailCount === 1 ? " time" : " times")+ ".\n", "red2"))
+			log.unshift(cStyle("red", true))
+		}
+		if (name) message.unshift(name + ": ")
+		if (hasProcess) message.unshift("––––––\n")
+		message.push(" in " + Math.round(Date.now() - start) + "ms")
+
+		log.unshift(message.join(""))
+		console.log.apply(console.log, log)
+
+		return errCount + results.bailCount
 	}
 	return o
 })

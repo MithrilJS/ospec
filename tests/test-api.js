@@ -22,7 +22,6 @@ o("API", function() {
 	// make sure that the main exported object also exposes the API
 	o(typeof lib).equals("function")
 
-	o(typeof lib.addExtension).equals("function")
 	o(typeof lib.after).equals("function")
 	o(typeof lib.afterEach).equals("function")
 	o(typeof lib.before).equals("function")
@@ -1169,67 +1168,216 @@ o.spec("the done parser", function() {
 	})} catch (e) {/*ES5 env, or no eval, ignore*/}
 	/*eslint-enable no-eval*/
 })
-o.spec("extensions", function() {
-	o("basics", function(done) {
-		var oo = lib.new()
-		var alwaysSucceeds = o.spy(function (actual, expected) {
-			o(actual).equals(1)
-			o(expected).equals(2)
-			return "SUCCESS"
-		})
-		var alwaysFails = o.spy(function (actual, expected) {
-			o(actual).equals(3)
-			o(expected).equals(4)
-			throw "FAILURE"
-		})
-		o(typeof oo.addExtension).equals("function")
-		oo.spec("my spec", function() {
-			oo.addExtension("alwaysSucceeds", alwaysSucceeds)
-			oo.addExtension("alwaysFails", alwaysFails)
-			oo("test", function () {
 
-				var assertion = oo(true)
+o.spec("satisfies / notSatisfies", function() {
+	o.spec("satisfies", function() {
+		o("passes when returning string", function(done) {
+			var oo = lib.new()
+			var getsFiveAndReturnsString = o.spy(function(value) {
+				o(value).equals(5)
+				return "Ok"
+			})
+			oo("test", function() {
+				oo(5).satisfies(getsFiveAndReturnsString)
+			})
+			oo.run(function(results) {
+				o(getsFiveAndReturnsString.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(true)
+				o(results[0].message).equals("Ok")
 
-				o(typeof assertion.equals).equals("function")
-				o(typeof assertion.notEquals).equals("function")
-				o(typeof assertion.deepEquals).equals("function")
-				o(typeof assertion.notDeepEquals).equals("function")
-				o(typeof assertion.throws).equals("function")
-				o(typeof assertion.notThrows).equals("function")
-				o(typeof assertion.alwaysSucceeds).equals("function")
-				o(typeof assertion.alwaysFails).equals("function")
-
-				assertion.equals(true)
-
-				oo(1).alwaysSucceeds(2)
-				oo(3).alwaysFails(4)
+				done()
 			})
 		})
-		oo("test in global scope", function() {
-			var assertion = oo(true)
-			o(assertion.alwaysSucceeds).equals(void 0)
-			o(assertion.alwaysFails).equals(void 0)
-			assertion.equals(true)
+		o("passes when returning non-string", function(done) {
+			var oo = lib.new()
+			var getsFiveAndReturnsNumber = o.spy(function(value) {
+				o(value).equals(5)
+				return 5
+			})
+			oo("test", function() {
+				oo(5).satisfies(getsFiveAndReturnsNumber)
+			})
+			oo.run(function(results) {
+				o(getsFiveAndReturnsNumber.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(true)
+				o(results[0].message).equals("5")("stringified message")
+
+				done()
+			})
 		})
-		oo.run(function(results) {
-			o(alwaysSucceeds.callCount).equals(1)
-			o(alwaysFails.callCount).equals(1)
-			o(results.length).equals(4)
+		o("fails when throwing string", function(done) {
+			var oo = lib.new()
+			var getsFiveandThrowsString = o.spy(function(value) {
 
-			o(results[0].pass).equals(true)
+				o(value).equals(5)
 
-			o(results[1].pass).equals(true)("[0] passed")
-			o(results[1].message).equals("SUCCESS")
+				throw "Not Ok"
+			})
+			oo("test", function() {
+				oo(5).satisfies(getsFiveandThrowsString)
+			})
+			oo.run(function(results) {
 
-			o(results[2].pass).equals(false)("[0] failed")
-			o(results[2].message).equals("FAILURE")
+				o(getsFiveandThrowsString.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(false)
+				o(results[0].message).equals("Not Ok")
 
-			o(results[3].pass).equals(true)
+				done()
+			})
+		})
+		o("fails when throwing number", function(done) {
+			var oo = lib.new()
+			var getsFiveandThrowsNumber = o.spy(function(value) {
 
-			done()
+				o(value).equals(5)
+
+				throw 5
+			})
+			oo("test", function() {
+				oo(5).satisfies(getsFiveandThrowsNumber)
+			})
+			oo.run(function(results) {
+
+				o(getsFiveandThrowsNumber.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(false)
+				o(results[0].message).equals("5")("stringified message")
+
+				done()
+			})
+		})
+		o("fails when throwing error", function(done) {
+			var oo = lib.new()
+			var err = new Error("An Error")
+			var getsFiveandThrowsError = o.spy(function(value) {
+
+				o(value).equals(5)
+
+				throw err
+			})
+			oo("test", function() {
+				oo(5).satisfies(getsFiveandThrowsError)
+			})
+			oo.run(function(results) {
+
+				o(getsFiveandThrowsError.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(false)
+				o(results[0].message).equals("An Error")
+				o(results[0].error).equals(err)
+
+				done()
+			})
+		})
+	})
+	o.spec("notSatisfies", function() {
+		o("fails when returning string", function(done) {
+			var oo = lib.new()
+			var getsFiveAndReturnsString = o.spy(function(value) {
+				o(value).equals(5)
+				return "Ok"
+			})
+			oo("test", function() {
+				oo(5).notSatisfies(getsFiveAndReturnsString)
+			})
+			oo.run(function(results) {
+				o(getsFiveAndReturnsString.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(false)
+				o(results[0].message).equals("Ok")
+
+				done()
+			})
+		})
+		o("fails when returning non-string", function(done) {
+			var oo = lib.new()
+			var getsFiveAndReturnsNumber = o.spy(function(value) {
+				o(value).equals(5)
+				return 5
+			})
+			oo("test", function() {
+				oo(5).notSatisfies(getsFiveAndReturnsNumber)
+			})
+			oo.run(function(results) {
+				o(getsFiveAndReturnsNumber.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(false)
+				o(results[0].message).equals("5")("stringified message")
+
+				done()
+			})
+		})
+		o("passes when throwing string", function(done) {
+			var oo = lib.new()
+			var getsFiveandThrowsString = o.spy(function(value) {
+
+				o(value).equals(5)
+
+				throw "Not Ok"
+			})
+			oo("test", function() {
+				oo(5).notSatisfies(getsFiveandThrowsString)
+			})
+			oo.run(function(results) {
+
+				o(getsFiveandThrowsString.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(true)
+				o(results[0].message).equals("Not Ok")
+
+				done()
+			})
+		})
+		o("passes when throwing number", function(done) {
+			var oo = lib.new()
+			var getsFiveandThrowsNumber = o.spy(function(value) {
+
+				o(value).equals(5)
+
+				throw 5
+			})
+			oo("test", function() {
+				oo(5).notSatisfies(getsFiveandThrowsNumber)
+			})
+			oo.run(function(results) {
+
+				o(getsFiveandThrowsNumber.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(true)
+				o(results[0].message).equals("5")("stringified message")
+
+				done()
+			})
+		})
+		o("passes when throwing error", function(done) {
+			var oo = lib.new()
+			var err = new Error("An Error")
+			var getsFiveandThrowsError = o.spy(function(value) {
+
+				o(value).equals(5)
+
+				throw err
+			})
+			oo("test", function() {
+				oo(5).notSatisfies(getsFiveandThrowsError)
+			})
+			oo.run(function(results) {
+
+				o(getsFiveandThrowsError.callCount).equals(1)
+				o(results.length).equals(1)
+				o(results[0].pass).equals(true)
+				o(results[0].message).equals("An Error")
+				o(results[0].error).equals(err)
+
+				done()
+			})
 		})
 	})
 })
+
 o.spec("throwing bails out of the current spec", function() {
 	o("Two tests. Throwing in the first causes the second not to run", function(done) {
 		var before = o.spy()

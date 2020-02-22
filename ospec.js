@@ -176,19 +176,6 @@ else window.o = m()
 		globalTimeout(n)
 	}
 
-	o.addExtension = function(name, handler) {
-		if (isRunning()) throw new Error("please add extensions outside of tests")
-		if (globalContext === spec) throw new Error("you can't extend the global scope")
-		if (name in globalAssert.prototype) throw new Error("attempt at redefining o()." + name + "()")
-		if (globalContext.customAssert == null) {
-			var proto = Object.create(globalAssert.prototype)
-			globalAssert = AssertFactory()
-			globalAssert.prototype = proto
-			globalContext.customAssert = globalAssert
-		}
-		globalAssert.prototype[name] = createAssertion(handler)
-	}
-
 	// # Test runner
 	o.run = function(reporter) {
 		results = []
@@ -386,15 +373,19 @@ else window.o = m()
 		}
 	}
 
-	function createAssertion(f) {
-		return function(expected) {
+	function plainAssertion(verb, compare) {
+		return function(self, value) {
+			var success = compare(self.value, value)
+			var message = serialize(self.value) + "\n  " + verb + "\n" + serialize(value)
+			if (success) succeed(self.result, message)
+			else fail(self.result, message)
+		}
+	}
+
+	function define(name, assertion) {
+		globalAssert.prototype[name] = function assert(value) {
 			var self = this
-			try {
-				succeed(self.result, f(self.value, expected))
-			} catch (e) {
-				if (e instanceof Error) fail(self.result, e.message, e)
-				else fail(self.result, e)
-			}
+			assertion(self, value)
 			return function(message) {
 				if (!self.result.pass) {
 					self.result.message = message + "\n\n" + self.result.message
@@ -403,20 +394,28 @@ else window.o = m()
 		}
 	}
 
-	function define(name, verb, compare) {
-		globalAssert.prototype[name] = createAssertion(function(actual, expected) {
-			var message = serialize(actual) + "\n  " + verb + "\n" + serialize(expected)
-			if (compare(actual, expected)) return message
-			else throw message
-		})
-	}
-
-	define("equals", "should equal", function(a, b) {return a === b})
-	define("notEquals", "should not equal", function(a, b) {return a !== b})
-	define("deepEquals", "should deep equal", deepEqual)
-	define("notDeepEquals", "should not deep equal", function(a, b) {return !deepEqual(a, b)})
-	define("throws", "should throw a", throws)
-	define("notThrows", "should not throw a", function(a, b) {return !throws(a, b)})
+	define("equals", plainAssertion("should equal", function(a, b) {return a === b}))
+	define("notEquals", plainAssertion("should not equal", function(a, b) {return a !== b}))
+	define("deepEquals", plainAssertion("should deep equal", deepEqual))
+	define("notDeepEquals", plainAssertion("should not deep equal", function(a, b) {return !deepEqual(a, b)}))
+	define("throws", plainAssertion("should throw a", throws))
+	define("notThrows", plainAssertion("should not throw a", function(a, b) {return !throws(a, b)}))
+	define("satisfies", function satisfies(self, check) {
+		try {
+			succeed(self.result, String(check(self.value)))
+		} catch (e) {
+			if (e instanceof Error) fail(self.result, e.message, e)
+			else fail(self.result, String(e))
+		}
+	})
+	define("notSatisfies", function notSatisfies(self, check) {
+		try {
+			fail(self.result, String(check(self.value)))
+		} catch (e) {
+			if (e instanceof Error) succeed(self.result, e.message, e)
+			else succeed(self.result, String(e))
+		}
+	})
 
 	function isArguments(a) {
 		if ("callee" in a) {
@@ -472,9 +471,11 @@ else window.o = m()
 		return false
 	}
 
-	function succeed(result, message) {
+	function succeed(result, message, error) {
 		result.pass = true
 		result.message = message
+		// for notSatisfies, use the testError for other passing assertions
+		if (error != null) result.error = error
 	}
 
 	function fail(result, message, error) {

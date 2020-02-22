@@ -5,8 +5,7 @@ const o = require("../ospec")
 const path = require("path")
 const glob = require("glob")
 
-// eval is needed because`import()` is a syntax error in older
-// node.js versions (pre 13.2).
+// eval is needed because`import()` is a syntax error in older node.js versions (pre 13.2).
 const supportsImport = (() => { try {
 	// eslint-disable-next-line no-eval
 	return Boolean(eval("import('./non-existant-file').catch(()=>{})"))
@@ -44,6 +43,13 @@ const args = parseArgs(process.argv)
 const globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.js"]
 const ignore = ["**/node_modules/**"].concat(args.ignore || [])
 const cwd = process.cwd()
+let bailCount = 0
+
+const oReport = o.report
+o.report = (results) => {
+	results.bailCount += bailCount
+	return oReport(results)
+}
 
 // Ensure a p
 Promise.all(args.preload.map(
@@ -61,8 +67,9 @@ Promise.all(args.preload.map(
 			glob(globPattern, {ignore: ignore})
 				.on("match", (fileName) => { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
 					console.error(e)
-					o("error while loading " + path.join(cwd, fileName), () => {
-						o(true).equals(false)(e.stack)
+					o(path.join(cwd, fileName) + "  >>> BAILED OUT <<<", () => {
+						o().satisfies(function(){throw e})
+						bailCount++
 					})
 				}))})
 				.on("error", (e) => { console.error(e) })

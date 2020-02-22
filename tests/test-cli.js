@@ -1,7 +1,11 @@
 /* eslint-disable wrap-regex */
 "use strict"
 
+//*
 const o = require("ospec")
+/*/
+const o = require("../ospec")
+//*/
 const fs = require("fs")
 const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = fs.promises
 const {join} = require("path")
@@ -146,7 +150,7 @@ async function createNodeModules(path) {
 	)
 	await writeFile(
 		join(dummyCjsTestDir, "should-not-run.js"),
-		"console.log(__filename + ' ran')"
+		"\"use strict\";console.log(__filename + ' ran')"
 	)
 
 	await mkdir(ospecBinDir, {recursive: true})
@@ -277,7 +281,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 8 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -304,7 +308,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 2 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 2 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -325,7 +329,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 4 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -348,7 +352,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 4 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -371,7 +375,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 8 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -399,7 +403,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 8 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -428,7 +432,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead"})
 		
-				o(/All 8 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -456,7 +460,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead"})
 		
-				o(/All 8 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -485,7 +489,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 6 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 6 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -510,7 +514,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 4 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 	
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -533,7 +537,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 2 assertions passed in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 2 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -591,8 +595,8 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 1})
 				o({stderr}).notDeepEquals({stderr: ""})
 		
-				o({correctNumberPassed: /2 out of 4 assertions failed in \d+ms\s+$/.test(stdout)})
-					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n$/))
+				o({correctNumberPassed: /Bailed out 2 times\.\nAll 2 assertions passed(?: \(old style total: \d+\))? in \d+ms\s+$/.test(stdout)})
+					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"tests/main1.js",

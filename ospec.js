@@ -1,5 +1,19 @@
 "use strict"
 
+/*
+Ospec is made of four parts:
+
+1. a test definition API That creates a spec tree
+2. a test runner that walks the spec tree
+3. an assertion API that populates a results array
+4. a reporter which presents the results
+
+The tepmoral sequence at run time is 1 then (2 and 3), then 4
+
+The various sections (and sub-sections thereof) share information through stack-managed globals
+which are enumerated in the "Setup" section below.
+*/
+
 
 ;(function(m) {
 if (typeof module !== "undefined") module["exports"] = m()
@@ -19,22 +33,32 @@ else window.o = m()
 	var globalDepth = 1
 	var globalTest = null
 	var globalTimeout = noTimeoutRightNow
-	var asyncTimeoutPendingResolution = 0
+	var globalTimedOutAndPendingResolution = 0
 
 	if (name != null) spec.children[name] = globalContext = new Spec()
 
 	// Shared state, set only once, but initialization is delayed
 	var results, start, timeoutStackName
 
-	// # Task runner helpers and constructors
-	var stack = 0
-	var nextTickish = hasProcess
-		? process.nextTick
-		: function fakeFastNextTick(next) {
-			if (stack++ < 5000) next()
-			else setTimeout(next, stack = 0)
-		}
+	// # General utils
 
+	function isRunning() {return results != null}
+
+	function ensureStackTrace(error) {
+		// mandatory to get a stack in IE 10 and 11 (and maybe other envs?)
+		if (error.stack === undefined) try { throw error } catch(e) {return e}
+		else return error
+	}
+
+	function getStackName(e, exp) {
+		return e.stack && exp.test(e.stack) ? e.stack.match(exp)[1] : null
+	}
+
+	function noTimeoutRightNow() {
+		throw new Error("o.timeout must be called snchronously from within a test definition or a hook.")
+	}
+
+	// # Spec definition
 	function Spec() {
 		this.before = []
 		this.beforeEach = []
@@ -56,30 +80,11 @@ else window.o = m()
 		this.depth = globalDepth
 	}
 
-	function isInternal(task) {
-		return task.err == null
-	}
-	function isRunning() {return results != null}
-
-	function ensureStackTrace(error) {
-		// mandatory to get a stack in IE 10 and 11 (and maybe other envs?)
-		if (error.stack === undefined) try { throw error } catch(e) {return e}
-		else return error
-	}
-
-	function getStackName(e, exp) {
-		return e.stack && exp.test(e.stack) ? e.stack.match(exp)[1] : null
-	}
-
 	function hook(name) {
 		return function(predicate) {
 			if (globalContext[name].length > 0) throw new Error("Attempt to register o." + name + "() more than once. A spec can only have one hook of each kind.")
 			globalContext[name][0] = new Task(predicate, ensureStackTrace(new Error), name)
 		}
-	}
-
-	function noTimeoutRightNow() {
-		throw new Error("o.timeout must be called snchronously from within a test definition or a hook.")
 	}
 
 	function unique(subject) {
@@ -177,6 +182,18 @@ else window.o = m()
 	}
 
 	// # Test runner
+	var stack = 0
+	var nextTickish = hasProcess
+		? process.nextTick
+		: function fakeFastNextTick(next) {
+			if (stack++ < 5000) next()
+			else setTimeout(next, stack = 0)
+		}
+
+	function isInternal(task) {
+		return task.err == null
+	}
+	
 	o.run = function(reporter) {
 		results = []
 		start = new Date
@@ -292,7 +309,7 @@ else window.o = m()
 					if (!isDone) isDone = true
 					else throw new Error("'" + arg + "()' should only be called once.")
 					if (isAsync && timeout === undefined) {
-						asyncTimeoutPendingResolution--
+						globalTimedOutAndPendingResolution--
 						console.warn(
 							metadata.context
 							+ "\n# elapsed: " + Math.round(new Date - s)
@@ -320,7 +337,7 @@ else window.o = m()
 				function startTimer() {
 					timeout = setTimeout(function() {
 						timeout = undefined
-						asyncTimeoutPendingResolution++
+						globalTimedOutAndPendingResolution++
 						finalize("async test timed out after " + delay + "ms\nWarning: assertions starting with `???` may not be properly labelled", true, true)
 					}, Math.min(delay, 2147483647))
 				}
@@ -371,7 +388,7 @@ else window.o = m()
 		this.value = value
 		this.result = {
 			pass: null,
-			context: (asyncTimeoutPendingResolution === 0 ? "" : "??? ") + globalTest.context,
+			context: (globalTimedOutAndPendingResolution === 0 ? "" : "??? ") + globalTest.context,
 			message: "Incomplete assertion in the test definition starting at...",
 			error: globalTest.error, testError: globalTest.error
 		}

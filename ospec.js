@@ -1,4 +1,6 @@
 "use strict"
+
+
 ;(function(m) {
 if (typeof module !== "undefined") module["exports"] = m()
 else window.o = m()
@@ -12,12 +14,12 @@ else window.o = m()
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
 
 	// stack-managed globals
-	var globalContext = spec
-	var globalTestError = null
-	var globalTimeout = noTimeoutRightNow
-	var globalAssert = AssertFactory()
-	var globalDepth = 1
 	var globalBail
+	var globalContext = spec
+	var globalDepth = 1
+	var globalTest = null
+	var globalTimeout = noTimeoutRightNow
+	var asyncTimeoutPendingResolution = 0
 
 	if (name != null) spec.children[name] = globalContext = new Spec()
 
@@ -92,7 +94,7 @@ else window.o = m()
 	function o(subject, predicate) {
 		if (predicate === undefined) {
 			if (!isRunning()) throw new Error("Assertions should not occur outside test definitions.")
-			return new globalAssert(subject)
+			return new Assertion(subject)
 		} else {
 			subject = String(subject)
 			globalContext.children[unique(subject)] = new Task(predicate, ensureStackTrace(new Error))
@@ -115,14 +117,12 @@ else window.o = m()
 
 	o.spec = function(subject, predicate) {
 		// stack managed globals
-		var previousAssert = globalAssert
 		var parent = globalContext
 		globalContext = globalContext.children[unique(subject)] = new Spec()
 		globalDepth++
 		predicate()
 		globalDepth--
 		globalContext = parent
-		globalAssert = previousAssert
 	}
 
 	o.only = function(subject, predicate, silent) {
@@ -199,15 +199,12 @@ else window.o = m()
 			if (spec.specTimeout) defaultDelay = spec.specTimeout
 
 			// stack-managed globals
-			var previousAssert = globalAssert
-			if (spec.customAssert != null) globalAssert = spec.customAssert
 
 			var previousBail = globalBail
 			globalBail = function() {bailed = true}
 
 
 			var restoreStack = new Task(function() {
-				globalAssert = previousAssert
 				globalBail = previousBail
 			})
 			// /stack-managed globals
@@ -269,7 +266,10 @@ else window.o = m()
 				var task = tasks[cursor++]
 				var fn = task.fn
 				var isHook = task.hookName != null
-				globalTestError = task.err
+				var metadata = globalTest = {
+					context: subjects.join(" > "),
+					error: task.err
+				}
 				var timeout, delay = defaultDelay, s = new Date
 				var isDone = false
 				var isAsync = false
@@ -285,13 +285,20 @@ else window.o = m()
 				}
 
 				if (isHook) {
-					subjects.push("[[ o."+ task.hookName + Array.apply(null, {length: task.depth}).join("*") + " ]]")
+					globalTest.context = "o." + task.hookName + Array.apply(null, {length: task.depth}).join("*") + "( " + globalTest.context + " )"
 				}
 				// public API, may only be called once from use code (or after returned Promise resolution)
 				function done(err) {
 					if (!isDone) isDone = true
 					else throw new Error("'" + arg + "()' should only be called once.")
-					if (isAsync && timeout === undefined) console.warn("# elapsed: " + Math.round(new Date - s) + "ms, expected under " + delay + "ms\n" + o.cleanStackTrace(task.err))
+					if (isAsync && timeout === undefined) {
+						asyncTimeoutPendingResolution--
+						console.warn(
+							metadata.context
+							+ "\n# elapsed: " + Math.round(new Date - s)
+							+ "ms, expected under " + delay + "ms\n"
+							+ o.cleanStackTrace(task.err))
+					}
 					if (!isFinalized) finalize(err, arguments.length !== 0, false)
 				}
 				// for internal use only
@@ -301,12 +308,11 @@ else window.o = m()
 					}
 					isFinalized = true
 					if (threw) {
-						if (err instanceof Error) fail(new globalAssert().result, err.message, err)
-						else fail(new globalAssert().result, String(err), null)
+						if (err instanceof Error) fail(new Assertion().result, err.message, err)
+						else fail(new Assertion().result, String(err), null)
 						if (!isTimeout) globalBail()
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
-					if (isHook) subjects.pop()
 					if (isAsync) {
 						next()
 					} else nextTickish(next)
@@ -314,7 +320,8 @@ else window.o = m()
 				function startTimer() {
 					timeout = setTimeout(function() {
 						timeout = undefined
-						finalize("async test timed out after " + delay + "ms", true, true)
+						asyncTimeoutPendingResolution++
+						finalize("async test timed out after " + delay + "ms\nWarning: assertions starting with `???` may not be properly labelled", true, true)
 					}, Math.min(delay, 2147483647))
 				}
 				try {
@@ -360,17 +367,15 @@ else window.o = m()
 		}
 	}
 	// #Assertions
-	function AssertFactory() {
-		return function Assert(value) {
-			this.value = value
-			this.result = {
-				pass: null,
-				context: subjects.join(" > "),
-				message: "Incomplete assertion in the test definition starting at...",
-				error: globalTestError, testError: globalTestError
-			}
-			results.push(this.result)
+	function Assertion(value) {
+		this.value = value
+		this.result = {
+			pass: null,
+			context: (asyncTimeoutPendingResolution === 0 ? "" : "??? ") + globalTest.context,
+			message: "Incomplete assertion in the test definition starting at...",
+			error: globalTest.error, testError: globalTest.error
 		}
+		results.push(this.result)
 	}
 
 	function plainAssertion(verb, compare) {
@@ -383,7 +388,7 @@ else window.o = m()
 	}
 
 	function define(name, assertion) {
-		globalAssert.prototype[name] = function assert(value) {
+		Assertion.prototype[name] = function assert(value) {
 			var self = this
 			assertion(self, value)
 			return function(message) {

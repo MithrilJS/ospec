@@ -109,6 +109,18 @@ o("o.only", function(done) {
 	})
 })
 
+o("named suite", function(done) {
+	var oo = lib.new("named suite")
+	oo("test", function(){
+		oo(true).equals(false)
+	})
+	oo.run(function(results) {
+		o(results.length).equals(1)("results length")
+		o(results[0].context).equals("named suite > test")
+		done()
+	})
+})
+
 // Predicate test passing on clone results
 o.spec("reporting", function() {
 	o("results (assertion order in hooks and tests)", function(done) {

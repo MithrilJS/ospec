@@ -20,6 +20,7 @@ else window.o = m()
 })(function init(name) {
 	// # Setup
 	// const
+	var hasSuiteName = arguments.length !== 0
 	var spec = new Spec()
 	var subjects = []
 	var hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
@@ -33,8 +34,6 @@ else window.o = m()
 	var globalTest = null
 	var globalTimeout = noTimeoutRightNow
 	var globalTimedOutAndPendingResolution = 0
-
-	if (name != null) spec.children[name] = globalContext = new Spec()
 
 	// Shared state, set only once, but initialization is delayed
 	var results, start, timeoutStackName
@@ -185,7 +184,12 @@ else window.o = m()
 		results.asyncSuccesses = 0
 		start = new Date
 
-		var finalizer = new Task(function() {
+		if (hasSuiteName) {
+			var parent = new Spec()
+			parent.children[name] = spec
+		}
+
+		var finalize = new Task(function() {
 			setTimeout(function () {
 				timeoutStackName = getStackName({stack: o.cleanStackTrace(ensureStackTrace(new Error))}, /([\w \.]+?:\d+:\d+)/)
 				if (typeof reporter === "function") reporter(results)
@@ -196,7 +200,7 @@ else window.o = m()
 			})
 		}, null)
 
-		runSpec(spec, [], [], finalizer, 200 /*default timeout delay*/)
+		runSpec(hasSuiteName ? parent : spec, [], [], finalize, 200 /*default timeout delay*/)
 
 		function runSpec(spec, beforeEach, afterEach, finalize, defaultDelay) {
 			var bailed = false
@@ -564,6 +568,15 @@ else window.o = m()
 		var total = results.length - results.bailCount
 		var message = [], log = []
 
+		if (hasProcess) message.push("––––––\n")
+
+		if (results.bailCount !== 0) {
+			message.push(highlight("Bailed out " + results.bailCount + (results.bailCount === 1 ? " time" : " times")+ ".\n", "red2"))
+			log.push(cStyle("red", true))
+		}
+
+		if (name) message.push(name + ": ")
+
 		if (errCount === 0 && results.bailCount === 0) {
 			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal, "green"))
 			log.push(cStyle("green" , true))
@@ -573,12 +586,7 @@ else window.o = m()
 			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed" + oldTotal, "red2"))
 			log.push(cStyle("red" , true))
 		}
-		if (results.bailCount !== 0) {
-			message.unshift(highlight("Bailed out " + results.bailCount + (results.bailCount === 1 ? " time" : " times")+ ".\n", "red2"))
-			log.unshift(cStyle("red", true))
-		}
-		if (name) message.unshift(name + ": ")
-		if (hasProcess) message.unshift("––––––\n")
+
 		message.push(" in " + Math.round(Date.now() - start) + "ms")
 
 		log.unshift(message.join(""))

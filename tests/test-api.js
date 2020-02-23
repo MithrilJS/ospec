@@ -49,7 +49,8 @@ if (typeof process !== "undefined") {
 		}
 		var oo = lib.new()
 		oo("test", function() {
-			oo("incomplete")
+			var incomplete = oo("incomplete")
+			o(Object.getOwnPropertyNames(incomplete).sort()).deepEquals(["i", "value"])
 		})
 		oo.run(function(results) {
 			o(results.length).equals(1)

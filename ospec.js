@@ -307,14 +307,16 @@ else window.o = m()
 				}
 				// for internal use only
 				function finalize(err, threw, isTimeout) {
-					if (isAsync && err == null && task.err != null && !isTimeout) {results.asyncSuccesses++}
 					if (isFinalized) {
+						// failsafe for hacking, should never happen in released code
 						throw new Error("Multiple finalization")
 					}
+					// temporary, for the "old style count" report
+					if (isAsync && err == null && task.err != null && !isTimeout) {results.asyncSuccesses++}
 					isFinalized = true
 					if (threw) {
-						if (err instanceof Error) fail(new Assertion().result, err.message, err)
-						else fail(new Assertion().result, String(err), null)
+						if (err instanceof Error) fail(new Assertion().i, err.message, err)
+						else fail(new Assertion().i, String(err), null)
 						if (!isTimeout) {globalBail()}
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
@@ -342,8 +344,8 @@ else window.o = m()
 							throw doneError
 						}
 						fn(done, globalTimeout)
-						// This may already be undefined if done() was called synchronously
 						if (!isFinalized) {
+							// done() hasn't been called synchronously
 							isAsync = true
 							startTimer()
 						}
@@ -352,9 +354,8 @@ else window.o = m()
 						if (p && p.then) {
 							// use `done`, not `finalize` here to defend against badly behaved thenables
 							p.then(function() { done() }, done)
-							// This may already be undefined if done() was called synchronously in a
-							// non-promise thenable
 							if (!isFinalized) {
+								// done() hasn't been called synchronously by a non-promise thenable
 								isAsync = true
 								startTimer()
 							}
@@ -375,21 +376,21 @@ else window.o = m()
 	// #Assertions
 	function Assertion(value) {
 		this.value = value
-		this.result = {
+		this.i = results.length
+		results.push({
 			pass: null,
 			context: (globalTimedOutAndPendingResolution === 0 ? "" : "??? ") + globalTest.context,
 			message: "Incomplete assertion in the test definition starting at...",
 			error: globalTest.error, testError: globalTest.error
-		}
-		results.push(this.result)
+		})
 	}
 
 	function plainAssertion(verb, compare) {
 		return function(self, value) {
 			var success = compare(self.value, value)
 			var message = serialize(self.value) + "\n  " + verb + "\n" + serialize(value)
-			if (success) succeed(self.result, message)
-			else fail(self.result, message)
+			if (success) succeed(self.i, message)
+			else fail(self.i, message)
 		}
 	}
 
@@ -398,9 +399,7 @@ else window.o = m()
 			var self = this
 			assertion(self, value)
 			return function(message) {
-				if (!self.result.pass) {
-					self.result.message = message + "\n\n" + self.result.message
-				}
+				results[self.i].message = message + "\n\n" + results[self.i].message
 			}
 		}
 	}
@@ -413,18 +412,18 @@ else window.o = m()
 	define("notThrows", plainAssertion("should not throw a", function(a, b) {return !throws(a, b)}))
 	define("satisfies", function satisfies(self, check) {
 		try {
-			succeed(self.result, String(check(self.value)))
+			succeed(self.i, String(check(self.value)))
 		} catch (e) {
-			if (e instanceof Error) fail(self.result, e.message, e)
-			else fail(self.result, String(e))
+			if (e instanceof Error) fail(self.i, e.message, e)
+			else fail(self.i, String(e))
 		}
 	})
 	define("notSatisfies", function notSatisfies(self, check) {
 		try {
-			fail(self.result, String(check(self.value)))
+			fail(self.i, String(check(self.value)))
 		} catch (e) {
-			if (e instanceof Error) succeed(self.result, e.message, e)
-			else succeed(self.result, String(e))
+			if (e instanceof Error) succeed(self.i, e.message, e)
+			else succeed(self.i, String(e))
 		}
 	})
 
@@ -482,14 +481,16 @@ else window.o = m()
 		return false
 	}
 
-	function succeed(result, message, error) {
+	function succeed(i, message, error) {
+		var result = results[i]
 		result.pass = true
 		result.message = message
-		// for notSatisfies, use the testError for other passing assertions
+		// for notSatisfies. Use the testError for other passing assertions
 		if (error != null) result.error = error
 	}
 
-	function fail(result, message, error) {
+	function fail(i, message, error) {
+		var result = results[i]
 		result.pass = false
 		result.message = message
 		result.error = error != null ? error : ensureStackTrace(new Error)
@@ -541,11 +542,6 @@ else window.o = m()
 	o.report = function (results) {
 		var errCount = -results.bailCount
 		for (var i = 0, r; r = results[i]; i++) {
-			if (r.pass == null) {
-				r.testError.stack = r.message + "\n" + o.cleanStackTrace(r.testError)
-				r.testError.message = r.message
-				throw r.testError
-			}
 			if (!r.pass) {
 				var stackTrace = o.cleanStackTrace(r.error)
 				var couldHaveABetterStackTrace = !stackTrace || timeoutStackName != null && stackTrace.indexOf(timeoutStackName) !== -1

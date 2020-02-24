@@ -1322,7 +1322,7 @@ o.spec("satisfies / notSatisfies", function() {
 				done()
 			})
 		})
-		o("fails when throwing error", function(done) {
+		o("bails when throwing error", function(done) {
 			var oo = lib.new()
 			var err = new Error("An Error")
 			var getsFiveandThrowsError = o.spy(function(value) {
@@ -1338,6 +1338,7 @@ o.spec("satisfies / notSatisfies", function() {
 
 				o(getsFiveandThrowsError.callCount).equals(1)
 				o(results.length).equals(1)
+				o(results.bailCount).equals(1)
 				o(results[0].pass).equals(false)
 				o(results[0].message).equals("An Error")
 				o(results[0].error).equals(err)

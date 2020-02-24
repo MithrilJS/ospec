@@ -146,11 +146,9 @@ else window.o = m()
 		try {
 			predicate()
 		} catch(e) {
-			globalContext.children[name] = new Task(function(){}, null, null)
-			globalContext.children[name + "  >>> BAILED OUT <<<"] = new Task(function(){
-				o().satisfies(function(){throw e})
-				results.bailCount++
-			}, ensureStackTrace(new Error), null)
+			globalContext.children[name].children = {" > > BAILED OUT < < <": new Task(function(){
+				throw e
+			}, ensureStackTrace(new Error), null)}
 		}
 		globalDepth--
 		globalContext = parent
@@ -459,15 +457,17 @@ else window.o = m()
 		try {
 			succeed(self.i, String(check(self.value)), null)
 		} catch (e) {
-			if (e instanceof Error) fail(self.i, e.message, e)
-			else fail(self.i, String(e), null)
+			if (e instanceof Error) {
+				results.pop()
+				throw e
+			} else fail(self.i, String(e), null)
 		}
 	})
 	define("notSatisfies", function notSatisfies(self, check) {
 		try {
 			fail(self.i, String(check(self.value)), null)
 		} catch (e) {
-			if (e instanceof Error) succeed(self.i, e.message, e)
+			if (e instanceof Error) {succeed(self.i, e.message, e)}
 			else succeed(self.i, String(e), null)
 		}
 	})

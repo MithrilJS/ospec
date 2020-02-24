@@ -56,8 +56,10 @@ if (typeof process !== "undefined") {
 			o(results.length).equals(1)
 			o(results[0].message).equals("Incomplete assertion in the test definition starting at...")
 			o(results[0].pass).equals(null)
+
 			var stack = oo.cleanStackTrace(results[0].testError)
 			var matches2 = stack && stack.match(stackMatcher)
+
 			if (matches != null && matches2 != null) {
 				o(matches[1]).equals(name)
 				o(Number(matches2[2])).equals(num + 6)
@@ -79,33 +81,44 @@ o("one test, one assertion that succeeds", function () {
 	})
 })
 
-o("o.only", function(done) {
-	var oo = lib.new()
-
-	oo.spec("won't run", function() {
-		oo("nope, skipped", function() {
-			o(true).equals(false)
-		})
+o.spec("o.only", function(){
+	var log
+	o.beforeEach(function(){
+		log = console.log
+		console.log = o.spy()
 	})
-
-	oo.spec("ospec", function() {
-		oo("skipped as well", function() {
-			oo(true).equals(false)
-		})
-		oo.only(".only()", function() {
-			oo(2).equals(2)
-		}, true)
-		oo.only("another .only()", function(done) {
-			done("that fails")
-		}, true)
+	o.afterEach(function(){
+		console.log = log
 	})
+	o("works", function(done) {
+		var oo = lib.new()
 
-	oo.run(function(results){
-		o(results.length).equals(2)
-		o(results[0].pass).equals(true)
-		o(results[1].pass).equals(false)
+		oo.spec("won't run", function() {
+			oo("nope, skipped", function() {
+				o(true).equals(false)
+			})
+		})
 
-		done()
+		oo.spec("ospec", function() {
+			oo("skipped as well", function() {
+				oo(true).equals(false)
+			})
+			oo.only(".only()", function() {
+				oo(2).equals(2)
+			})
+			oo.only("another .only()", function(done) {
+				done("that fails")
+			})
+		})
+
+		oo.run(function(results){
+			o(results.length).equals(2)
+			o(results[0].pass).equals(true)
+			o(results[1].pass).equals(false)
+			o(console.log.callCount).equals(1)
+			o(console.log.args[0].indexOf("/!\\ WARNING /!\\ o.only() mode")).notEquals(-1)
+			done()
+		})
 	})
 })
 
@@ -544,6 +557,47 @@ o.spec("ospec", function() {
 	})
 
 	o.spec("timeout", function () {
+		o.spec("legacy argument timeout", function() {
+			var consoleError
+			o.beforeEach(function(){
+				consoleError = console.error
+				console.error = o.spy()
+			})
+			o.afterEach(function(){
+				console.error = consoleError
+			})
+			o("works, but warns", function(done) {
+				var oo = lib.new()
+				var err
+				// the success of this test is dependent on having the
+				// oo() call three linew below this one
+				try {throw new Error} catch(e) {err = e}
+				if (err.stack) {
+					var line = Number(err.stack.match(/:(\d+):/)[1])
+					oo("", function(oodone, timeout) {
+						timeout(1)
+						// eslint-disable-next-line no-constant-condition
+						if (false) oodone()
+					})
+					oo.run((function(results) {
+						o(results.length).equals(1)
+						o(results[0].pass).equals(false)
+						// todo test cleaned up results[0].error stack trace for the presence
+						// of the timeout stack entry
+						o(results[0].testError instanceof Error).equals(true)
+						o(oo.cleanStackTrace(results[0].testError).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
+						o(console.error.callCount).equals(1)
+						o(console.error.args[0] instanceof Error).equals(true)
+						o(console.error.args[0].message).equals("`timeout()` as a test argument has been deprecated, use `o.timeout()`")
+
+						done()
+					}))
+				} else {
+					done()
+				}
+			})
+		})
+
 		o("when using done()", function(done) {
 			var oo = lib.new()
 			var err
@@ -552,8 +606,8 @@ o.spec("ospec", function() {
 			try {throw new Error} catch(e) {err = e}
 			if (err.stack) {
 				var line = Number(err.stack.match(/:(\d+):/)[1])
-				oo("", function(oodone, timeout) {
-					timeout(1)
+				oo("", function(oodone) {
+					oo.timeout(1)
 					// eslint-disable-next-line no-constant-condition
 					if (false) oodone()
 				})
@@ -769,7 +823,7 @@ o.spec("ospec", function() {
 					err = e
 				}
 				o(err instanceof Error).equals(true)
-				o(err.message).equals("'oodone()' should only be called once.")
+				o(err.message).equals("`oodone()` should only be called once.")
 			})
 			oo.run(function(results) {
 				o(results.length).equals(0)
@@ -787,7 +841,7 @@ o.spec("ospec", function() {
 					err = e
 				}
 				o(err instanceof Error).equals(true)
-				o(err.message).equals("'oodone()' should only be called once.")
+				o(err.message).equals("`oodone()` should only be called once.")
 			})
 			oo.run(function(results) {
 				o(results.length).equals(0)
@@ -805,7 +859,7 @@ o.spec("ospec", function() {
 					err = e
 				}
 				o(err instanceof Error).equals(true)
-				o(err.message).equals("'oodone()' should only be called once.")
+				o(err.message).equals("`oodone()` should only be called once.")
 			})
 			oo.run(function(results) {
 				o(results.length).equals(1)
@@ -825,7 +879,7 @@ o.spec("ospec", function() {
 					err = e
 				}
 				o(err instanceof Error).equals(true)
-				o(err.message).equals("'oodone()' should only be called once.")
+				o(err.message).equals("`oodone()` should only be called once.")
 			})
 			oo.run(function(results) {
 				o(results.length).equals(1)
@@ -950,7 +1004,8 @@ o.spec("the done parser", function() {
 			*/ /**/ //huuu
 			, timeout
 		) {
-			timeout(5)
+			// eslint-disable-next-line no-constant-condition
+			if (false) timeout(5)
 			oo(true).equals(true)
 			done()
 		})

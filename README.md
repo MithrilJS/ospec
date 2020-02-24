@@ -180,7 +180,7 @@ By default, asynchronous tests time out after 200ms. You can change that default
 its children by using the `o.specTimeout(delay)` function.
 
 ```javascript
-o.spec("a spec that must timeout quickly", function(done, timeout) {
+o.spec("a spec that must timeout quickly", function() {
 	// wait 20ms before bailing out of the tests of this suite and
 	// its descendants
 	o.specTimeout(20)
@@ -202,7 +202,7 @@ o.spec("a spec that uses the default delay", function() {
 This can also be changed on a per-test basis using the `o.timeout(delay)` function from within a test:
 
 ```javascript
-o("setTimeout calls callback", function(done, timeout) {
+o("setTimeout calls callback", function(done) {
 	o.timeout(500) //wait 500ms before bailing out of the test
 
 	setTimeout(done, 300)
@@ -432,7 +432,7 @@ Defines a group of tests. Groups are optional
 
 ---
 
-### void o(String title, Function([Function done [, Function timeout]]) assertions)
+### void o(String title, Function([Function done]) assertions)
 
 Defines a test.
 
@@ -498,7 +498,7 @@ Asserts that a function does not throw an Error with the provided message
 
 ---
 
-### void o.before(Function([Function done [, Function timeout]]) setup)
+### void o.before(Function([Function done]) setup)
 
 Defines code to be run at the beginning of a test group
 
@@ -506,7 +506,7 @@ If an argument is defined for the `setup` function, this hook is deemed to be as
 
 ---
 
-### void o.after(Function([Function done [, Function timeout]]) teardown)
+### void o.after(Function([Function done) teardown)
 
 Defines code to be run at the end of a test group
 
@@ -514,7 +514,7 @@ If an argument is defined for the `teardown` function, this hook is deemed to be
 
 ---
 
-### void o.beforeEach(Function([Function done [, Function timeout]]) setup)
+### void o.beforeEach(Function([Function done]) setup)
 
 Defines code to be run before each test in a group
 
@@ -522,7 +522,7 @@ If an argument is defined for the `setup` function, this hook is deemed to be as
 
 ---
 
-### void o.afterEach(Function([Function done [, Function timeout]]) teardown)
+### void o.afterEach(Function([Function done]) teardown)
 
 Defines code to be run after each test in a group
 
@@ -530,7 +530,7 @@ If an argument is defined for the `teardown` function, this hook is deemed to be
 
 ---
 
-### void o.only(String title, Function([Function done [, Function timeout]]) assertions)
+### void o.only(String title, Function([Function done]) assertions)
 
 Declares that only a single test should be run, instead of all of them
 

@@ -43,13 +43,6 @@ const args = parseArgs(process.argv)
 const globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.js"]
 const ignore = ["**/node_modules/**"].concat(args.ignore || [])
 const cwd = process.cwd()
-let bailCount = 0
-
-const oReport = o.report
-o.report = (results) => {
-	results.bailCount += bailCount
-	return oReport(results)
-}
 
 // Ensure a p
 Promise.all(args.preload.map(
@@ -67,9 +60,8 @@ Promise.all(args.preload.map(
 			glob(globPattern, {ignore: ignore})
 				.on("match", (fileName) => { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
 					console.error(e)
-					o(path.join(cwd, fileName) + "  >>> BAILED OUT <<<", () => {
-						o().satisfies(function(){throw e})
-						bailCount++
+					o.spec(path.join(cwd, fileName), () => {
+						o(" > > BAILED OUT < < <", function(){throw e})
 					})
 				}))})
 				.on("error", (e) => { console.error(e) })

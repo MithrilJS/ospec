@@ -416,27 +416,82 @@ o.spec("ospec", function() {
 				done()
 			})
 		})
-		o("spy wrapping", function() {
-			var oo = lib.new()
-			var spy = oo.spy(function view(vnode){
-				this.drawn = true
+		o.spec("spies", function() {
+			var supportsFunctionMutations = false;
+			// eslint-disable-next-line no-empty, no-implicit-coercion
+			try {supportsFunctionMutations = !!Object.defineProperties(function(){}, {name: {value: "a"},length: {value: 1}})} catch(_){}
 
-				return {tag: "div", children: vnode.children}
+			var supportsEval = false
+			// eslint-disable-next-line no-eval, no-empty
+			try {eval("supportsEval = true")} catch(e){}
+
+			o("noop spy", function() {
+				var oo = lib.new()
+				var spy = oo.spy()
+
+				o(spy.callCount).equals(0)
+				o(spy.this).equals(undefined)
+				o(spy.calls).deepEquals([])
+				o(spy.args).deepEquals([])
+
+				spy(1, 2)
+
+				o(spy.callCount).equals(1)
+				o(spy.this).equals(undefined)
+				o(spy.args).deepEquals([1, 2])
+				o(spy.calls).deepEquals([{this: undefined, args: [1, 2]}])
+
+				spy.call(spy, 3, 4)
+
+				o(spy.callCount).equals(2)
+				o(spy.this).equals(spy)
+				o(spy.args).deepEquals([3, 4])
+				o(spy.calls).deepEquals([
+					{this: undefined, args: [1, 2]},
+					{this: spy, args: [3, 4]}
+				])
 			})
-			var children = [""]
-			var state = {}
 
-			var output = spy.call(state, {children: children})
+			o("spy wrapping", function() {
+				var oo = lib.new()
+				function view(children){
+					this.drawn = true
 
-			o(spy.length).equals(1)
-			o(spy.name).equals("view")
-			o(spy.callCount).equals(1)
-			o(spy.args.length).equals(1)
-			o(spy.args[0]).deepEquals({children: children})
-			o(spy.calls.length).equals(1)
-			o(spy.calls[0]).deepEquals({this: state, args: [{children: children}]})
-			o(state).deepEquals({drawn: true})
-			o(output).deepEquals({tag: "div", children: children})
+					return {tag: "div", children: children}
+				}
+				var spy = oo.spy(view)
+				var children = [""]
+				var state = {}
+
+				o(spy.callCount).equals(0)
+				o(spy.this).equals(undefined)
+				o(spy.calls).deepEquals([])
+				o(spy.args).deepEquals([])
+
+				var output = spy.call(state, children)
+
+				o(spy.callCount).equals(1)
+				o(spy.args.length).equals(1)
+				o(spy.args[0]).deepEquals(children)
+				o(spy.calls.length).equals(1)
+				o(spy.calls[0]).deepEquals({this: state, args: [children]})
+				o(state).deepEquals({drawn: true})
+				o(output).deepEquals({tag: "div", children: children})
+
+				if (supportsFunctionMutations || supportsEval) {
+					o(spy.length).equals(1)
+					// IE 11 functions don't have a `.name` unless set manually.
+					if(view.name === "view") o(spy.name).equals("view")
+				}
+			})
+			if (supportsFunctionMutations || supportsEval) o("anonymous spy", function(){
+				// eslint-disable-next-line no-unused-vars
+				var spy = o.spy(function(_a){})
+
+				o(spy.name).equals("")("No name for the anonymous spy")
+				o(spy.length).equals(1)("Spy length should be 1")
+			})
+
 		})
 	})
 	o("async callback", function(finished) {

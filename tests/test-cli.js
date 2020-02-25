@@ -430,7 +430,7 @@ o.spec("cli", function() {
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 		
 				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead"})
+				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 		
 				o(/All 8 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
@@ -458,7 +458,7 @@ o.spec("cli", function() {
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 		
 				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead"})
+				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 		
 				o(/All 8 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		

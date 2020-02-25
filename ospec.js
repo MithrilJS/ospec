@@ -548,20 +548,79 @@ else window.o = m()
 		try {return JSON.stringify(value)} catch (e) {return String(value)}
 	}
 
-	o.spy = function(fn) {
-		var spy = function() {
-			spy.this = this
-			spy.args = [].slice.call(arguments)
-			spy.calls.push({this: this, args: spy.args})
-			spy.callCount++
+	// o.spy is functionally equivalent to this:
+	// the edxtra complexity comes from compatibility issues
+	// in ES5 environments where you can't overwrite fn.length
 
-			if (fn) return fn.apply(this, arguments)
-		}
-		if (fn)
-			Object.defineProperties(spy, {
-				length: {value: fn.length},
-				name: {value: fn.name}
-			})
+	// o.spy = function(fn) {
+	// 	var spy = function() {
+	// 		spy.this = this
+	// 		spy.args = [].slice.call(arguments)
+	// 		spy.calls.push({this: this, args: spy.args})
+	// 		spy.callCount++
+
+	// 		if (fn) return fn.apply(this, arguments)
+	// 	}
+	// 	if (fn)
+	// 		Object.defineProperties(spy, {
+	// 			length: {value: fn.length},
+	// 			name: {value: fn.name}
+	// 		})
+	// 	spy.args = []
+	// 	spy.calls = []
+	// 	spy.callCount = 0
+	// 	return spy
+	// }
+
+	var spyFactoryCache = Object.create(null)
+
+	function makeSpyFactory(name, length) {
+		if (spyFactoryCache[name] == null) spyFactoryCache[name] = []
+		var args = Array.apply(null, {length: length}).map(
+			function(_, i) {return "_" + i}
+		).join(", ");
+		var code =
+			"'use strict';" +
+			"var spy = (0, function " + name + "(" + args + ") {" +
+			"   return helper(this, [].slice.call(arguments), fn, spy)" +
+			"});" +
+			"return spy"
+
+		return spyFactoryCache[name][length] = new Function("fn", "helper", code)
+	}
+
+	function getOrMakeSpyFactory(name, length) {
+		return spyFactoryCache[name] && spyFactoryCache[name][length] || makeSpyFactory(name, length)
+	}
+
+	function spyHelper(self, args, fn, spy) {
+		spy.this = self
+		spy.args = args
+		spy.calls.push({this: self, args: args})
+		spy.callCount++
+
+		if (fn) return fn.apply(self, args)
+	}
+
+	var supportsFunctionMutations = false;
+	// eslint-disable-next-line no-empty, no-implicit-coercion
+	try {supportsFunctionMutations = !!Object.defineProperties(function(){}, {name: {value: "a"},length: {value: 1}})} catch(_){}
+
+	var supportsEval = false
+	// eslint-disable-next-line no-eval, no-empty
+	try {eval("supportsEval = true")} catch(e){}
+
+	o.spy = function spy(fn) {
+		var name = "", length = 0
+		if (fn) name = fn.name, length = fn.length
+		var spy = (!supportsFunctionMutations && supportsEval)
+			? getOrMakeSpyFactory(name, length)(fn, spyHelper)
+			: function(){return spyHelper(this, [].slice.call(arguments), fn, spy)}
+		if (supportsFunctionMutations) Object.defineProperties(spy, {
+			name: {value: name},
+			length: {value: length}
+		})
+
 		spy.args = []
 		spy.calls = []
 		spy.callCount = 0

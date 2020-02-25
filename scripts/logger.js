@@ -1,5 +1,7 @@
 "use strict"
 
+// TODO: properly document this
+
 const o = require("ospec")
 const {report} = o
 const {writeFileSync, mkdirSync} = require("fs")

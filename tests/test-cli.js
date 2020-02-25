@@ -87,7 +87,7 @@ function execFile(command, args, options) {
 }
 
 function removeWrarnings(stderr) {
-	return stderr.split("\n").filter((x) => !x.includes("ExperimentalWarning") && !x.includes("npm WARN lifecycle")).join("")
+	return stderr.split("\n").filter((x) => !x.includes("ExperimentalWarning") && !x.includes("npm WARN lifecycle")).join("\n")
 }
 function removeYarnExtraOutput(stdout) {
 	return stdout.split("\n").filter((line) => !/^Done in [\d\.s]+$/.test(line) && !line.includes("yarnpkg")).join("\n")

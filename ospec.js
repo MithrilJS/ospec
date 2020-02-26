@@ -215,7 +215,10 @@ else window.o = m()
 			if ((stack = (stack + 1) & 0xfff) === 0) setTimeout(next, stack = 0)
 			else next()
 		}
-
+	o.context = function() {
+		if (!isRunning()) throw new Error("o.context is only defined in test context")
+		return globalTestOrHook.context
+	}
 	o.run = function(reporter) {
 		results = []
 		results.bailCount = 0

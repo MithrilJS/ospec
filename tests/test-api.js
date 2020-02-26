@@ -9,9 +9,10 @@ function stringify(x) {
 }
 
 if (typeof require !== "undefined") {
+	var loadFromDeps = (typeof process !== "undefined" && process.argv.length >= 2 && process.argv[1].match(/ospec\/node_modules\/\.bin\/ospec$/))
 	/* eslint-disable global-require */
 	o = lib = require("../ospec")
-	o =	 require("ospec")
+	if (loadFromDeps) o = require("ospec")
 	/* eslint-enable global-require */
 } else {
 	o = lib = window.o
@@ -79,6 +80,26 @@ o("one test, one assertion that succeeds", function () {
 		o(result.length).equals(1)
 		o(result[0].pass).equals(true)
 	})
+})
+
+o("timing, test definition is synchronous, test are always async", function(){
+	var spy = o.spy()
+	var oo = lib.new()
+	oo.spec("spec", function(){
+		oo("test", function(){spy(2)})
+		spy(0)
+	})
+	oo.run(function(results){
+		var expected = []
+		expected.bailCount = expected.asyncSuccesses = 0
+		o(results).deepEquals(expected)
+		o(spy.calls).deepEquals([
+			{this: void 0, args: [0]},
+			{this: void 0, args: [1]},
+			{this: void 0, args: [2]}
+		])
+	})
+	spy(1)
 })
 
 o.spec("o.only", function(){
@@ -1035,73 +1056,61 @@ o.spec("ospec", function() {
 o.spec("the done parser", function() {
 	o("accepts non-English names", function(done) {
 		var oo = lib.new()
-		var threw = false
-		oo("test", function(完了) {
-			oo(true).equals(true)
-			完了()
-		})
-		try {
+		o(function() {
+			oo("test", function(完了) {
+				oo(true).equals(true)
+				完了()
+			})
 			oo.run(function(results){
 				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
-		} catch(e) {threw = e.stack}
-
-		o(threw).equals(false)
+		}).notThrows(Error)
 	})
 	o("tolerates comments with an ES5 function expression and a timeout parameter", function(done) {
 		var oo = lib.new()
-		var threw = false
-		oo("test", function(/*hey
-			*/ /**/ //ho
-			done /*hey
-			*/ /**/ //huuu
-			, timeout
-		) {
-			// eslint-disable-next-line no-constant-condition
-			if (false) timeout(5)
-			oo(true).equals(true)
-			done()
-		})
-		try {
+		o(function() {
+			oo("test", function(/*hey
+				*/ /**/ //ho
+				done /*hey
+				*/ /**/ //huuu
+				, timeout
+			) {
+				// eslint-disable-next-line no-constant-condition
+				if (false) timeout(5)
+				oo(true).equals(true)
+				done()
+			})
 			oo.run(function(results){
 				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
-		} catch(e) {threw = e.stack}
-
-		o(threw).equals(false)
+		}).notThrows(Error)
 	})
 	/*eslint-disable no-eval*/
 	o("tolerates comments with an ES5 function expression and no timeoout parameter, unix-style line endings", function(done) {
 		var oo = lib.new()
-		var threw = false
-		oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {oo(true).equals(true);done()})"))
-		try {
+		o(function() {
+			oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {oo(true).equals(true);done()})"))
 			oo.run(function(results){
 				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
-		} catch(e) {threw = e.stack}
-
-		o(threw).equals(false)
+		}).notThrows(Error)
 	})
 	o("tolerates comments with an ES5 function expression and no timeoout parameter, windows-style line endings", function(done) {
 		var oo = lib.new()
-		var threw = false
-		oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {oo(true).equals(true);done()})"))
-		try {
+		o(function() {
+			oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {oo(true).equals(true);done()})"))
 			oo.run(function(results){
 				o(results.length).equals(1)
 				results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
 				done()
 			})
-		} catch(e) {threw = e.stack}
-
-		o(threw).equals(false)
+		}).notThrows(Error)
 	})
 	try {eval("(()=>{})()"); o.spec("with ES6 arrow functions", function() {
 		function getCommentContent(f) {
@@ -1110,188 +1119,165 @@ o.spec("the done parser", function() {
 		}
 		o("has no false positives 1", function(done){
 			var oo = lib.new()
-			var threw = false
-			eval(getCommentContent(function(){/*
-				oo(
-					'Async test parser mistakenly identified 1st token after a parens to be `done` reference',
-					done => {
-						oo(threw).equals(false)
-						done()
-					}
-				)
-			*/}))
-			try {
+			o(function() {
+				eval(getCommentContent(function(){/*
+					oo(
+						'Async test parser mistakenly identified 1st token after a parens to be `done` reference',
+						done => {
+							oo(false).equals(false)
+							done()
+						}
+					)
+				*/}))
 				oo.run(function(results){
 					o(results.length).equals(1)
-					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+					o(results.asyncSuccesses).equals(1)
 					done()
 				})
-			} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			}).notThrows(Error)
 		})
 		o("has no false positives 2", function(done){
 			var oo = lib.new()
-			var threw = false
-			eval(getCommentContent(function(){/*
-				oo(
-					'Async test parser mistakenly identified 1st token after a parens to be `(done)` reference',
-					(done) => {
-						oo(threw).equals(false)
-						done()
-					}
-				)
-			*/}))
-			try {
+			o(function() {
+				eval(getCommentContent(function(){/*
+					oo(
+						'Async test parser mistakenly identified 1st token after a parens to be `(done)` reference',
+						(done) => {
+							oo(false).equals(false)
+							done()
+						}
+					)
+				*/}))
 				oo.run(function(results){
 					o(results.length).equals(1)
-					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+					o(results.asyncSuccesses).equals(1)
 					done()
 				})
-			} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			}).notThrows(Error)
 		})
 		o("has no false negatives", function(){
+			// eslint-disable-next-line no-unused-vars
 			var oo = lib.new()
-			var threw = false
-			var reporterRan = false
-			eval(getCommentContent(function(){/*
-				oo(
-					"Multiple references to the wrong thing doesn't fool the checker",
-					done => {
-						oo(threw).equals(false)
-						oo(threw).equals(false)
-					}
-				)
-			*/}))
-			try {oo.run(function(){reporterRan = true})} catch(e) {threw = true}
-
-			o(reporterRan).equals(false)
-			o(threw).equals(true)
+			o(function(){
+				eval(getCommentContent(function(){/*
+					oo(
+						"Multiple references to the wrong thing doesn't fool the checker",
+						done => {
+							oo(oo).equals(oo)
+							oo(oo).equals(oo)
+						}
+					)
+				*/}))
+			}).throws(Error)
 		})
 		o("has no false negatives 2", function(){
+			// eslint-disable-next-line no-unused-vars
 			var oo = lib.new()
-			var threw = false
-			var reporterRan = false
-			eval(getCommentContent(function(){/*
-				oo(
-					"Multiple references to the wrong thing doesn't fool the checker",
-					(done) => {
-						oo(threw).equals(false)
-						oo(threw).equals(false)
-					}
-				)
-			*/}))
-			try {oo.run(function(){reporterRan = true})} catch(e) {threw = true}
-
-			o(reporterRan).equals(false)
-			o(threw).equals(true)
+			o(function(){
+				eval(getCommentContent(function(){/*
+					oo(
+						"Multiple references to the wrong thing doesn't fool the checker",
+						(done) => {
+							oo(oo).equals(oo)
+							oo(oo).equals(oo)
+						}
+					)
+				*/}))
+			}).throws(Error)
 		})
 		o("has no false negatives 3", function(){
+			// eslint-disable-next-line no-unused-vars
 			var oo = lib.new()
-			var threw = false
-			var reporterRan = false
-			eval(getCommentContent(function(){/*
-				oo(
-					"Multiple references to the wrong thing doesn't fool the checker",
-					(done)=>{
-						oo(threw).equals(false)
-						oo(threw).equals(false)
-					}
-				)
-			*/}))
-			try {oo.run(function(){reporterRan = true})} catch(e) {threw = true}
-
-			o(reporterRan).equals(false)
-			o(threw).equals(true)
+			o(function(){
+				eval(getCommentContent(function(){/*
+					oo(
+						"Multiple references to the wrong thing doesn't fool the checker",
+						(done)=>{
+							oo(oo).equals(oo)
+							oo(oo).equals(oo)
+						}
+					)
+				*/}))
+			}).throws(Error)
 		})
 		o("works with a literal that has parentheses but no spaces", function(done){
 			var oo = lib.new()
-			var threw = false
-			eval(getCommentContent(function(){/*
-				oo(
-					"Multiple references to the wrong thing doesn't fool the checker",
-					(done)=>{
-						oo(threw).equals(false)
-						done()
-					}
-				)
-			*/}))
-			try {
+			o(function() {
+				eval(getCommentContent(function(){/*
+					oo(
+						"test",
+						(done)=>{
+							oo(false).equals(false)
+							done()
+						}
+					)
+				*/}))
 				oo.run(function(results){
 					o(results.length).equals(1)
-					results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+					o(results.asyncSuccesses).equals(1)
 					done()
 				})
-			} catch(e) {threw = e.stack}
-			o(threw).equals(false)
+			}).notThrows(Error)
 		})
 		o("isn't fooled by comments", function(){
 			var oo = lib.new()
-			var threw = false
-			oo(
-				"comments won't throw the parser off",
-				eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
-			)
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			o(function() {
+				oo(
+					"comments won't throw the parser off",
+					eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
+				)
+				oo.run(function(){})
+			}).notThrows(Error)
 		})
 		o("isn't fooled by comments (no parens)", function(){
 			var oo = lib.new()
-			var threw = false
-			oo(
-				"comments won't throw the parser off",
-				eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
-			)
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			o(function() {
+				oo(
+					"comments won't throw the parser off",
+					eval("done /*hey*/ /**/ => {oo(threw).equals(false);done()}")
+				)
+				oo.run(function(){})
+			}).notThrows(Error)
 		})
 		o("isn't fooled by comments (with parens, no timeout, unix-style line endings)", function(){
 			var oo = lib.new()
-			var threw = false
-			oo(
-				"comments won't throw the parser off",
-				eval("(done /*hey*/ //ho \n/**/) => {oo(threw).equals(false);done()}")
-			)
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			o(function() {
+				oo(
+					"comments won't throw the parser off",
+					eval("(done /*hey*/ //ho \n/**/) => {oo(threw).equals(false);done()}")
+				)
+				oo.run(function(){})
+			}).notThrows(Error)
 		})
 		o("isn't fooled by comments (with parens, no timeout, windows-style line endings)", function(){
 			var oo = lib.new()
-			var threw = false
-			oo(
-				"comments won't throw the parser off",
-				eval("(done /*hey*/ //ho \r\n/**/) => {oo(threw).equals(false);done()}")
-			)
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			o(function() {
+				oo(
+					"comments won't throw the parser off",
+					eval("(done /*hey*/ //ho \r\n/**/) => {oo(threw).equals(false);done()}")
+				)
+				oo.run(function(){})
+			}).notThrows(Error)
 		})
 		o("isn't fooled by comments (with parens, with timeout, unix-style line endings)", function(){
 			var oo = lib.new()
-			var threw = false
-			oo(
-				"comments won't throw the parser off",
-				eval("(done /*hey*/ //ho \n/**/, timeout) => {oo(threw).equals(false);done()}")
-			)
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			o(function() {
+				oo(
+					"comments won't throw the parser off",
+					eval("(done /*hey*/ //ho \n/**/, timeout) => {oo(threw).equals(false);done()}")
+				)
+				oo.run(function(){})
+			}).notThrows(Error)
 		})
 		o("isn't fooled by comments (with parens, with timeout, windows-style line endings)", function(){
 			var oo = lib.new()
-			var threw = false
-			oo(
-				"comments won't throw the parser off",
-				eval("(done /*hey*/ //ho \r\n/**/, timeout) => {oo(threw).equals(false);done()}")
-			)
-			try {oo.run(function(){})} catch(e) {threw = e.stack}
-
-			o(threw).equals(false)
+			o(function() {
+				oo(
+					"comments won't throw the parser off",
+					eval("(done /*hey*/ //ho \r\n/**/, timeout) => {oo(threw).equals(false);done()}")
+				)
+				oo.run(function(){})
+			}).notThrows(Error)
 		})
 	})} catch (e) {/*ES5 env, or no eval, ignore*/}
 	/*eslint-enable no-eval*/

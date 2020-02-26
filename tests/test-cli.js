@@ -1,11 +1,8 @@
 /* eslint-disable wrap-regex */
 "use strict"
 
-//*
-const o = require("ospec")
-/*/
-const o = require("../ospec")
-//*/
+const loadFromDeps = (typeof process !== "undefined" && process.argv.length >= 2 && process.argv[1].match(/ospec\/node_modules\/\.bin\/ospec$/))
+const o = loadFromDeps ? require("ospec") : require("../ospec")
 const fs = require("fs")
 const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = fs.promises
 const {join} = require("path")

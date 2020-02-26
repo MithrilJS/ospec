@@ -1660,3 +1660,27 @@ o.spec("throwing bails out of the current spec", function() {
 		})
 	})
 })
+
+o.spec("context", function() {
+	o("throws where illegal, works in tests", function(done){
+		var oo = lib.new()
+		o(oo.context).throws(Error)
+		oo.spec("spec", function() {
+			o(oo.context).throws(Error)
+			oo.before(function(){
+				o(oo.context()).equals("o.before*( spec )")
+			})
+			oo("test", function() {
+				o(oo.context()).equals("spec > test")
+				oo().satisfies(function(){
+					o(oo.context()).equals("spec > test")
+				})
+			})
+		})
+		oo.run(function(results) {
+			o(results.length).equals(1)
+			o(results.map(function(r) {return {pass: r.pass}})).deepEquals([{pass: true}])
+			done()
+		})
+	})
+})

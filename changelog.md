@@ -13,10 +13,30 @@
 - [1.3 and earlier](#13-and-earlier)
 
 ### Upcoming...
-- Fix another corner case with the done parser [#16](https://github.com/MithrilJS/ospec/pull/2) [@kfule](https://github.com/kfule)
-- Add native ES6 module support for recent Node.js versions.
+
+Change log
+======
+
+- General cleanup and source comments. Drop the "300 LOC" pretense. Code that dense isn't readable, nor maintainable. ([#18](https://github.com/MithrilJS/ospec/pull/18))
+- Add native support for ES modules in Node versions that support it ([#13](https://github.com/MithrilJS/ospec/pull/13))
 - deprecate `--require` and intrduce `--preload` since it can not load both CommonJS packages or ES6 modules (`--require` is still supported with a warning for easing the transition).
-all the things inclding bin/ospec.
+- Add a test suite for the CLI runner ((cjs, esm) × (npm, yarn, nodejs)) ([#17](https://github.com/MithrilJS/ospec/pull/17))
+- Improve ergonomics when tests fail. ([#18](https://github.com/MithrilJS/ospec/pull/18))
+  - Correctly label assertions that happen in hooks.
+  - Errors thrown cause the current spec to be interrupted ("bail out")
+  - The test runner tolerates load-time failures and reports them.
+  - Once a test has timed out, assertions may be mislabeled. They are now labelled with `???` until the timed out test finishes.
+- Add experimental `.satisfies` and `.notSatisfies` hooks ([#18](https://github.com/MithrilJS/ospec/pull/18), partially address [#12](https://github.com/MithrilJS/ospec/issues/12)).
+  - `.satisfies` accepts a validator function that can either return (pass) or throw (fail) a string for reporting. If an Error is thrown, it causes the spec to bail out.
+  - `.notSatisfies` does more or less the opposite, but its semantics are still in flux, and it may disappear entirely.
+
+#### Bug fixes
+
+- The `timeout` argument for tests has long been declared deprecated, but they were still documented and didn't issue any warning on use. Not anymore ([#18](https://github.com/MithrilJS/ospec/pull/18))
+- give spies the name and length of the functions they wrap in ES5 environments ([#18](https://github.com/MithrilJS/ospec/pull/18), fixes [#8](https://github.com/MithrilJS/ospec/issues/8))
+- Only one o.only warning ([#18](https://github.com/MithrilJS/ospec/pull/18))
+- Lock Zalgo back in (the first test was being run synchronously unlike the following ones, except in browsers, where the 5000 first tests could have run before the first `setTimout()` call) ([#18](https://github.com/MithrilJS/ospec/pull/18))
+- Fix another corner case with the done parser [#16](https://github.com/MithrilJS/ospec/pull/16) [@kfule](https://github.com/kfule)
 - Fix arrow functions (`(done) => { }`) support in asynchronous tests. ([#2](https://github.com/MithrilJS/ospec/pull/2) [@kesara](https://github.com/kesara))
 
 ### 4.0.1

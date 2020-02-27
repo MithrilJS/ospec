@@ -70,7 +70,7 @@ if (typeof process !== "undefined") {
 	})
 }
 
-o("one test, one assertion that succeeds", function () {
+o("one test, one assertion that succeeds", function (done) {
 	var oo = lib.new()
 	oo("test", function() {
 		oo(true).equals(true)
@@ -79,6 +79,7 @@ o("one test, one assertion that succeeds", function () {
 		o(Array.isArray(result)).equals(true)("result is an Array")
 		o(result.length).equals(1)
 		o(result[0].pass).equals(true)
+		done()
 	})
 })
 
@@ -1456,11 +1457,11 @@ o.spec("the done parser", function() {
 
 o.spec("satisfies / notSatisfies", function() {
 	o.spec("satisfies", function() {
-		o("passes when returning string", function(done) {
+		o("passes with a string message", function(done) {
 			var oo = lib.new()
 			var getsFiveAndReturnsString = o.spy(function(value) {
 				o(value).equals(5)
-				return "Ok"
+				return {pass: true, message: "Ok"}
 			})
 			oo("test", function() {
 				oo(5).satisfies(getsFiveAndReturnsString)
@@ -1478,7 +1479,7 @@ o.spec("satisfies / notSatisfies", function() {
 			var oo = lib.new()
 			var getsFiveAndReturnsNumber = o.spy(function(value) {
 				o(value).equals(5)
-				return 5
+				return {pass: true, message: 5}
 			})
 			oo("test", function() {
 				oo(5).satisfies(getsFiveAndReturnsNumber)
@@ -1498,7 +1499,7 @@ o.spec("satisfies / notSatisfies", function() {
 
 				o(value).equals(5)
 
-				throw "Not Ok"
+				return {pass: false, message: "Not Ok"}
 			})
 			oo("test", function() {
 				oo(5).satisfies(getsFiveandThrowsString)
@@ -1513,13 +1514,13 @@ o.spec("satisfies / notSatisfies", function() {
 				done()
 			})
 		})
-		o("fails when throwing number", function(done) {
+		o("fails when not passing with a number", function(done) {
 			var oo = lib.new()
 			var getsFiveandThrowsNumber = o.spy(function(value) {
 
 				o(value).equals(5)
 
-				throw 5
+				return {pass: false, message: 5}
 			})
 			oo("test", function() {
 				oo(5).satisfies(getsFiveandThrowsNumber)
@@ -1560,11 +1561,11 @@ o.spec("satisfies / notSatisfies", function() {
 		})
 	})
 	o.spec("notSatisfies", function() {
-		o("fails when returning string", function(done) {
+		o("fails when passing with a string", function(done) {
 			var oo = lib.new()
 			var getsFiveAndReturnsString = o.spy(function(value) {
 				o(value).equals(5)
-				return "Ok"
+				return {pass: true, message: "Ok"}
 			})
 			oo("test", function() {
 				oo(5).notSatisfies(getsFiveAndReturnsString)
@@ -1578,11 +1579,11 @@ o.spec("satisfies / notSatisfies", function() {
 				done()
 			})
 		})
-		o("fails when returning non-string", function(done) {
+		o("fails when passing with a non-string", function(done) {
 			var oo = lib.new()
 			var getsFiveAndReturnsNumber = o.spy(function(value) {
 				o(value).equals(5)
-				return 5
+				return {pass: true, message: 5}
 			})
 			oo("test", function() {
 				oo(5).notSatisfies(getsFiveAndReturnsNumber)
@@ -1596,13 +1597,13 @@ o.spec("satisfies / notSatisfies", function() {
 				done()
 			})
 		})
-		o("passes when throwing string", function(done) {
+		o("succeeds when not passing with a string", function(done) {
 			var oo = lib.new()
 			var getsFiveandThrowsString = o.spy(function(value) {
 
 				o(value).equals(5)
 
-				throw "Not Ok"
+				return {pass: false, message: "Not Ok"}
 			})
 			oo("test", function() {
 				oo(5).notSatisfies(getsFiveandThrowsString)
@@ -1617,13 +1618,13 @@ o.spec("satisfies / notSatisfies", function() {
 				done()
 			})
 		})
-		o("passes when throwing number", function(done) {
+		o("succeeds when not passing with a number", function(done) {
 			var oo = lib.new()
 			var getsFiveandThrowsNumber = o.spy(function(value) {
 
 				o(value).equals(5)
 
-				throw 5
+				return {pass: false, message: 5}
 			})
 			oo("test", function() {
 				oo(5).notSatisfies(getsFiveandThrowsNumber)
@@ -1638,7 +1639,7 @@ o.spec("satisfies / notSatisfies", function() {
 				done()
 			})
 		})
-		o("passes when throwing error", function(done) {
+		o("bails when throwing error", function(done) {
 			var oo = lib.new()
 			var err = new Error("An Error")
 			var getsFiveandThrowsError = o.spy(function(value) {
@@ -1650,11 +1651,12 @@ o.spec("satisfies / notSatisfies", function() {
 			oo("test", function() {
 				oo(5).notSatisfies(getsFiveandThrowsError)
 			})
-			oo.run(function(results) {
+			oo.run(function(results, stats) {
 
 				o(getsFiveandThrowsError.callCount).equals(1)
+				o(stats).deepEquals({asyncSuccesses: 0, bailCount: 1})
 				o(results.length).equals(1)
-				o(results[0].pass).equals(true)
+				o(results[0].pass).equals(false)
 				o(results[0].message).equals("An Error")
 				o(results[0].error).equals(err)
 
@@ -1845,6 +1847,7 @@ o.spec("context", function() {
 				o(oo.metadata()).deepEquals({file: void 0, name: "spec > test"})
 				oo().satisfies(function(){
 					o(oo.metadata()).deepEquals({file: void 0, name: "spec > test"})
+					return {pass: true}
 				})
 			})
 		})

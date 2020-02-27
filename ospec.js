@@ -474,20 +474,22 @@ else window.o = m()
 	define("notThrows", plainAssertion("should not throw a", function(a, b) {return !throws(a, b)}))
 	define("satisfies", function satisfies(self, check) {
 		try {
-			succeed(self.i, String(check(self.value)), null)
+			var res = check(self.value)
+			if (res.pass) succeed(self.i, String(res.message), null)
+			else fail(self.i, String(res.message), null)
 		} catch (e) {
-			if (e instanceof Error) {
-				results.pop()
-				throw e
-			} else fail(self.i, String(e), null)
+			results.pop()
+			throw e
 		}
 	})
 	define("notSatisfies", function notSatisfies(self, check) {
 		try {
-			fail(self.i, String(check(self.value)), null)
+			var res = check(self.value)
+			if (!res.pass) succeed(self.i, String(res.message), null)
+			else fail(self.i, String(res.message), null)
 		} catch (e) {
-			if (e instanceof Error) {succeed(self.i, e.message, e)}
-			else succeed(self.i, String(e), null)
+			results.pop()
+			throw e
 		}
 	})
 
@@ -672,7 +674,7 @@ else window.o = m()
 		for (var i = 0, r; r = results[i]; i++) {
 			if (!r.pass) {
 				var stackTrace = o.cleanStackTrace(r.error)
-				var couldHaveABetterStackTrace = !stackTrace || timeoutStackName != null && stackTrace.indexOf(timeoutStackName) !== -1
+				var couldHaveABetterStackTrace = !stackTrace || timeoutStackName != null && stackTrace.indexOf(timeoutStackName) !== -1 && stackTrace.indexOf("\n") === -1
 				if (couldHaveABetterStackTrace) stackTrace = r.testError != null ? o.cleanStackTrace(r.testError) : r.error.stack || ""
 				console.error(
 					(hasProcess ? "\n" : "") +

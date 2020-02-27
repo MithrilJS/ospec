@@ -37,12 +37,15 @@ o("test", function() {
 	o().satisfies(function() {
 		const md = o.metadata()
 		console.log(md.file + " metadata file from assertion")
-		console.log(md.name + " metadata name from assertion")	
+		console.log(md.name + " metadata name from assertion")
+		return {pass: true}
 	})
 })
 `
 
-const file = (header, middle, filename) => `${header}${middle}o.spec(${filename}, function() {${test}})`
+const file = (header, middle, filename) => `${header}${middle}o.spec(${filename}, function() {
+	${test}
+})`
 
 const defaultMd = {
 	cjs: file(cjsHeader, "", cjsFileName),

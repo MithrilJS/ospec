@@ -29,7 +29,7 @@ Change log
 - Add experimental `.satisfies` and `.notSatisfies` assertions ([#18](https://github.com/MithrilJS/ospec/pull/18), partially address [#12](https://github.com/MithrilJS/ospec/issues/12)).
   - `.satisfies` accepts a validator function that can either return (pass) or throw (fail) a string for reporting. If an Error is thrown, it causes the spec to bail out.
   - `.notSatisfies` does more or less the opposite, but its semantics are still in flux, and it may disappear entirely.
-- Add `o.context()` which, with `o().statisfies()` opens the door to snapshots.
+- Add `o.metadata()` which, with `o().statisfies()` opens the door to snapshots. ([#18](https://github.com/MithrilJS/ospec/pull/18))
 
 #### Bug fixes
 

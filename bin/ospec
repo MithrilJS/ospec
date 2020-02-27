@@ -55,17 +55,23 @@ Promise.all(args.preload.map(
 )).then(
 	() => {
 		let remaining = globList.length
-		const tasks = []
+		let loading = Promise.resolve()
 		globList.forEach((globPattern) => {
 			glob(globPattern, {ignore: ignore})
-				.on("match", (fileName) => { tasks.push(load(path.join(cwd, fileName)).catch((e) => {
-					console.error(e)
-					o.spec(path.join(cwd, fileName), () => {
-						o(" > > BAILED OUT < < <", function(){throw e})
+				.on("match", (fileName) => {
+					var fullPath = path.join(cwd, fileName)
+					loading = loading.then(() => {
+						o.metadata({file: fullPath})
+						return load(fullPath).catch((e) => {
+							console.error(e)
+							o.spec(path.join(cwd, fileName), () => {
+								o("> > BAILED OUT < < <", function(){throw e})
+							})
+						})
 					})
-				}))})
+				})
 				.on("error", (e) => { console.error(e) })
-				.on("end", () => { if (--remaining === 0) Promise.all(tasks).then(() => o.run()) })
+				.on("end", () => { if (--remaining === 0) loading.then(() => o.run()) })
 		})
 	}
 )

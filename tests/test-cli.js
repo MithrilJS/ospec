@@ -725,6 +725,7 @@ o.spec("cli", function() {
 
 					check({
 						haystack: stdout,
+						// __filename is also the name of the spec
 						needle: fullPath + " > test metadata name from test",
 						label: "metadata name from test",
 						expected: true

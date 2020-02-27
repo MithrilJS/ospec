@@ -82,6 +82,27 @@ o("one test, one assertion that succeeds", function () {
 	})
 })
 
+o("o.run", function(done) {
+	var oo = lib.new()
+	var spy = o.spy()
+	oo.spec("tacular", function() {
+		o(function(){oo.run()}).throws(Error)
+		o(function(){oo.run(function(){})}).throws(Error)
+		spy()
+	})
+	oo("zing", function(){
+		o(function(){oo.run()}).throws(Error)
+		o(function(){oo.run(function(){})}).throws(Error)
+		spy()
+	})
+	oo.run(function(results, stats){
+		o(results).deepEquals([])
+		o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0})
+		if (spy.callCount !== 2) done("spy was called "+spy.callCount+" times, expected 2")
+		else done()
+	})
+})
+
 o("timing, test definition is synchronous, test are always async", function(){
 	var spy = o.spy()
 	var oo = lib.new()
@@ -90,9 +111,7 @@ o("timing, test definition is synchronous, test are always async", function(){
 		spy(0)
 	})
 	oo.run(function(results){
-		var expected = []
-		expected.bailCount = expected.asyncSuccesses = 0
-		o(results).deepEquals(expected)
+		o(results).deepEquals([])
 		o(spy.calls).deepEquals([
 			{this: void 0, args: [0]},
 			{this: void 0, args: [1]},
@@ -272,7 +291,6 @@ o.spec("reporting", function() {
 			results = [
 				{pass: false, error: makeError("hey"), message: "hey"}
 			]
-			results.bailCount = results.asyncSuccesses = 0
 			errCount = oo.report(results)
 
 			o(errCount).equals(1)
@@ -284,7 +302,6 @@ o.spec("reporting", function() {
 				{pass: true},
 				{pass: false, error: makeError("ho"), message: "ho"}
 			]
-			results.bailCount = results.asyncSuccesses = 0
 			errCount = oo.report(results)
 
 			o(errCount).equals(2)
@@ -515,73 +532,227 @@ o.spec("ospec", function() {
 
 		})
 	})
-	o("async callback", function(finished) {
-		var a = 0, b = 0
-
+	o("async callback sequence", function(finished) {
+		var trail = o.spy()
 		var oo = lib.new()
 
-		oo.after(function() {
-			o(a).equals(0)
-			o(b).equals(0)
+		oo.before(function(done) {
+			trail("global before")
+			callAsync(function(){
+				trail("global before async")
+				done()
+			})
+		})
+		oo.after(function(done) {
+			trail("global after")
+			callAsync(function(){
+				trail("global after async")
+				done()
+			})
 		})
 		oo.spec("dummy spec", function(){
 			oo.before(function(done) {
-				callAsync(function() {
-					a = 1
+				trail("spec before")
+				callAsync(function(){
+					trail("spec before async")
 					done()
 				})
 			})
 			oo.after(function(done) {
-				callAsync(function() {
-					a = 0
+				trail("spec after")
+				callAsync(function(){
+					trail("spec after async")
 					done()
 				})
 			})
-
 			oo.beforeEach(function(done) {
-				o(b).equals(0)
-				callAsync(function() {
-					b = 1
+				trail("spec beforeEach")
+				callAsync(function(){
+					trail("spec beforeEach async")
 					done()
 				})
 			})
 			oo.afterEach(function(done) {
-				callAsync(function() {
-					b = 0
+				trail("spec afterEach")
+				callAsync(function(){
+					trail("spec afterEach async")
 					done()
 				})
 			})
 
-			oo("hooks work as intended the first time", function(done) {
-				callAsync(function() {
-					var spy = o.spy()
-					spy(a)
-
-					o(a).equals(1)
-					o(b).equals(1)
-
+			oo("test1", function(done) {
+				trail("test1")
+				callAsync(function(){
+					trail("test1 async")
 					done()
 				})
 			})
-			oo("hooks work as intended the second time", function(done) {
-				callAsync(function() {
-					var spy = o.spy()
-					spy(a)
-
-					o(a).equals(1)
-					o(b).equals(1)
-
+			oo("test2", function(done) {
+				trail("test2")
+				callAsync(function(){
+					trail("test2 async")
 					done()
 				})
-			})
-
-			oo.run(function(results) {
-				o(results.length).equals(0)
-				finished()
 			})
 		})
+		oo.run(function(results) {
+			o(results).deepEquals([])
+			o(trail.calls.map(function(call) {return call.args})).deepEquals([
+				["global before"],
+				["global before async"],
+				["spec before"],
+				["spec before async"],
+				["spec beforeEach"],
+				["spec beforeEach async"],
+				["test1"],
+				["test1 async"],
+				["spec afterEach"],
+				["spec afterEach async"],
+				["spec beforeEach"],
+				["spec beforeEach async"],
+				["test2"],
+				["test2 async"],
+				["spec afterEach"],
+				["spec afterEach async"],
+				["spec after"],
+				["spec after async"],
+				["global after"],
+				["global after async"],
+			])
+			finished()
+		})
 	})
+	o("successful done callbacks", function(finished){
+		var oo = lib.new()
+		oo("syncSuccess", function(done) {
+			done()
+		})
+		oo("asyncSuccess", function(done) {
+			callAsync(function(){
+				done()
+			})
+		})
+		oo.spec("tolerates nullish", function() {
+			oo("syncSuccess null", function(done) {
+				done(null)
+			})
+			oo("asyncSuccess null", function(done) {
+				callAsync(function(){
+					done(null)
+				})
+			})
+			oo("syncSuccess undefined", function(done) {
+				done(undefined)
+			})
+			oo("asyncSuccess undefined", function(done) {
+				callAsync(function(){
+					done(undefined)
+				})
+			})
 
+		})
+		oo.run(function(results, stats) {
+			o(results).deepEquals([])
+			o(stats).deepEquals({asyncSuccesses: 6, bailCount: 0})
+			finished()
+		})
+	})
+	o("unsuccessful done callbacks", function(finished){
+		var oo = lib.new()
+		oo.spec("sync fail string", function(){
+			oo("", function(done) {
+				done("")
+			})
+		})
+		oo.spec("async fail string", function(){
+			oo("", function(done) {
+				callAsync(function(){
+					done("")
+				})
+			})
+		})
+		oo.spec("sync fail string2", function(){
+			oo("", function(done) {
+				done("2")
+			})
+		})
+		oo.spec("async fail string2", function(){
+			oo("", function(done) {
+				callAsync(function(){
+					done("2")
+				})
+			})
+		})
+		oo.spec("sync fail true", function(){
+			oo("", function(done) {
+				done(true)
+			})
+		})
+		oo.spec("async fail true", function(){
+			oo("", function(done) {
+				callAsync(function(){
+					done(true)
+				})
+			})
+		})
+		oo.spec("sync fail false", function(){
+			oo("", function(done) {
+				done(false)
+			})
+		})
+		oo.spec("async fail false", function(){
+			oo("", function(done) {
+				callAsync(function(){
+					done(false)
+				})
+			})
+		})
+		oo.spec("sync fail 0", function(){
+			oo("", function(done) {
+				done(0)
+			})
+		})
+		oo.spec("async fail 0", function(){
+			oo("", function(done) {
+				callAsync(function(){
+					done(0)
+				})
+			})
+		})
+		oo.spec("sync fail 5", function(){
+			oo("", function(done) {
+				done(5)
+			})
+		})
+		oo.spec("async fail 5", function(){
+			oo("", function(done) {
+				callAsync(function(){
+					done(5)
+				})
+			})
+		})
+		oo.spec("sync fail Error", function(){
+			oo("", function(done) {
+				done(new Error)
+			})
+		})
+		oo.spec("async fail Error", function(){
+			oo("", function(done) {
+				callAsync(function(){
+					done(new Error)
+				})
+			})
+		})
+
+		oo.run(function(results, stats) {
+			o(results.map(function(r){return r.pass})).deepEquals([
+				false, false, false, false, false, false, false,
+				false, false, false, false, false, false, false
+			])
+			o(stats).deepEquals({asyncSuccesses: 0, bailCount: 14})
+			finished()
+		})
+	})
 	o.spec("throwing in test context is recorded as a failure", function() {
 		var oo
 		o.beforeEach(function(){oo = lib.new()})
@@ -1129,9 +1300,9 @@ o.spec("the done parser", function() {
 						}
 					)
 				*/}))
-				oo.run(function(results){
+				oo.run(function(results, stats){
 					o(results.length).equals(1)
-					o(results.asyncSuccesses).equals(1)
+					o(stats.asyncSuccesses).equals(1)
 					done()
 				})
 			}).notThrows(Error)
@@ -1148,9 +1319,9 @@ o.spec("the done parser", function() {
 						}
 					)
 				*/}))
-				oo.run(function(results){
+				oo.run(function(results, stats){
 					o(results.length).equals(1)
-					o(results.asyncSuccesses).equals(1)
+					o(stats.asyncSuccesses).equals(1)
 					done()
 				})
 			}).notThrows(Error)
@@ -1212,9 +1383,9 @@ o.spec("the done parser", function() {
 						}
 					)
 				*/}))
-				oo.run(function(results){
+				oo.run(function(results, stats){
 					o(results.length).equals(1)
-					o(results.asyncSuccesses).equals(1)
+					o(stats.asyncSuccesses).equals(1)
 					done()
 				})
 			}).notThrows(Error)
@@ -1375,11 +1546,11 @@ o.spec("satisfies / notSatisfies", function() {
 			oo("test", function() {
 				oo(5).satisfies(getsFiveandThrowsError)
 			})
-			oo.run(function(results) {
+			oo.run(function(results, stats) {
 
 				o(getsFiveandThrowsError.callCount).equals(1)
 				o(results.length).equals(1)
-				o(results.bailCount).equals(1)
+				o(stats.bailCount).equals(1)
 				o(results[0].pass).equals(false)
 				o(results[0].message).equals("An Error")
 				o(results[0].error).equals(err)
@@ -1662,24 +1833,43 @@ o.spec("throwing bails out of the current spec", function() {
 })
 
 o.spec("context", function() {
-	o("throws where illegal, works in tests", function(done){
+	o("getting throws where illegal, works in tests", function(done){
 		var oo = lib.new()
-		o(oo.context).throws(Error)
+		o(oo.metadata).throws(Error)
 		oo.spec("spec", function() {
-			o(oo.context).throws(Error)
+			o(oo.metadata).throws(Error)
 			oo.before(function(){
-				o(oo.context()).equals("o.before*( spec )")
+				o(oo.metadata()).deepEquals({file: void 0, name: "o.before*( spec )"})
 			})
 			oo("test", function() {
-				o(oo.context()).equals("spec > test")
+				o(oo.metadata()).deepEquals({file: void 0, name: "spec > test"})
 				oo().satisfies(function(){
-					o(oo.context()).equals("spec > test")
+					o(oo.metadata()).deepEquals({file: void 0, name: "spec > test"})
 				})
 			})
 		})
 		oo.run(function(results) {
-			o(results.length).equals(1)
 			o(results.map(function(r) {return {pass: r.pass}})).deepEquals([{pass: true}])
+			done()
+		})
+	})
+	o("setting works at root, throws elsewhere", function(done) {
+		var oo = lib.new()
+		var spy = o.spy()
+		oo.metadata({file: "foo"})
+		oo.spec("spec", function(){
+			spy()
+			o(function(){oo.metadata({file: "bar"})}).throws(Error)
+		})
+		oo("test", function(){
+			spy()
+			o(oo.metadata()).deepEquals({file: "foo", name: "test"})
+			o(function(){oo.metadata({file: "bar"})}).throws(Error)
+		})
+		oo.run(function(results, stats) {
+			o(spy.callCount).equals(2)
+			o(results).deepEquals([])
+			o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0})
 			done()
 		})
 	})

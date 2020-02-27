@@ -35,19 +35,20 @@ else window.o = m()
 	var hasSuiteName = arguments.length !== 0
 	var only = []
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
-	var spec = new Spec()
+	var rootSpec = new Spec()
 	var subjects = []
 
 	// stack-managed globals
 	var globalBail
-	var globalContext = spec
+	var globalContext = rootSpec
 	var globalDepth = 1
+	var globalFile
 	var globalTestOrHook = null
 	var globalTimeout = noTimeoutRightNow
 	var globalTimedOutAndPendingResolution = 0
 
 	// Shared state, set only once, but initialization is delayed
-	var results, timeoutStackName
+	var results, stats, timeoutStackName
 
 	// # General utils
 	function isRunning() {return results != null}
@@ -111,6 +112,7 @@ else window.o = m()
 		// in order to also cover nested hooks.
 		if (isRunning() && err != null) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'.")
 		this.context = null
+		this.file = globalFile
 		this.depth = globalDepth
 		this.doneTwiceError = validateDone(fn, err) || "A thenable should only be resolved once."
 		this.error = err
@@ -159,6 +161,7 @@ else window.o = m()
 	o.new = init
 
 	o.spec = function(subject, predicate) {
+		if (isRunning()) throw new Error("`o.spec()` can't only be called at test definition time, not run time")
 		// stack managed globals
 		var parent = globalContext
 		var name = unique(subject)
@@ -167,7 +170,7 @@ else window.o = m()
 		try {
 			predicate()
 		} catch(e) {
-			globalContext.children[name].children = {" > > BAILED OUT < < <": new Task(function(){
+			globalContext.children[name].children = {"> > BAILED OUT < < <": new Task(function(){
 				throw e
 			}, ensureStackTrace(new Error), null)}
 		}
@@ -215,25 +218,37 @@ else window.o = m()
 			if ((stack = (stack + 1) & 0xfff) === 0) setTimeout(next, stack = 0)
 			else next()
 		}
-	o.context = function() {
-		if (!isRunning()) throw new Error("o.context is only defined in test context")
-		return globalTestOrHook.context
+	o.metadata = function(opts) {
+		if (arguments.length === 0) {
+			if (!isRunning()) throw new Error("getting o.context is only allowed at test run time")
+			return {
+				file: globalTestOrHook.file,
+				name: globalTestOrHook.context
+			}
+		} else {
+			if (isRunning() || globalContext !== rootSpec) throw new Error("setting o.context is only allowed at the root, at test definition time")
+			globalFile = opts.file
+		}
 	}
 	o.run = function(reporter) {
+		if (rootSpec !== globalContext) throw new Error("`o.run()` can't be called from within a spec")
+		if (isRunning()) throw new Error("`o.run()` has already been called")
 		results = []
-		results.bailCount = 0
-		results.asyncSuccesses = 0
+		stats = {
+			asyncSuccesses: 0,
+			bailCount: 0
+		}
 
 		if (hasSuiteName) {
 			var parent = new Spec()
-			parent.children[name] = spec
+			parent.children[name] = rootSpec
 		}
 
 		var finalize = new Task(function() {
 			timeoutStackName = getStackName({stack: o.cleanStackTrace(ensureStackTrace(new Error))}, /([\w \.]+?:\d+:\d+)/)
-			if (typeof reporter === "function") reporter(results)
+			if (typeof reporter === "function") reporter(results, stats)
 			else {
-				var errCount = o.report(results)
+				var errCount = o.report(results, stats)
 				if (hasProcess && errCount !== 0) process.exit(1) // eslint-disable-line no-process-exit
 			}
 		}, null, null)
@@ -242,7 +257,7 @@ else window.o = m()
 		// otherwise, an async test would release Zalgo
 		// https://blog.izs.me/2013/08/designing-apis-for-asynchrony
 		nextTickish(function () {
-			runSpec(hasSuiteName ? parent : spec, [], [], finalize, 200 /*default timeout delay*/)
+			runSpec(hasSuiteName ? parent : rootSpec, [], [], finalize, 200 /*default timeout delay*/)
 		})
 
 		function runSpec(spec, beforeEach, afterEach, finalize, defaultDelay) {
@@ -251,7 +266,7 @@ else window.o = m()
 
 			// stack-managed globals
 			var previousBail = globalBail
-			globalBail = function() {bailed = true; results.bailCount++}
+			globalBail = function() {bailed = true; stats.bailCount++}
 			var restoreStack = new Task(function() {
 				globalBail = previousBail
 			}, null, null)
@@ -328,10 +343,6 @@ else window.o = m()
 				var isFinalized = false
 				var timeout
 
-				// reuse `next` as a private sentinel. A default of `undefined`
-				// derails the `e === doneError` test at the end of this function.
-				// `globalDoneError` may be overwritten in the `validateDone()` helper.
-
 				if (!isInternal) {
 					globalTestOrHook = task
 					task.context = subjects.join(" > ")
@@ -350,15 +361,15 @@ else window.o = m()
 					} else {
 						var p = fn()
 						if (p && p.then) {
-							// Use `done`, not `finalize` here to defend against badly behaved thenables.
+							// Use `_done`, not `finalize` here to defend against badly behaved thenables.
 							// Let it crash if `then()` doesn't work as expected.
-							p.then(function() { done() }, done)
+							p.then(function() { _done(null, false) }, function(e) {_done(e, true)})
 						} else {
 							finalize(null, false, false)
 						}
 					}
 					if (!isFinalized) {
-						// done() hasn't been called synchronously
+						// done()/_done() haven't been called synchronously
 						isAsync = true
 						startTimer()
 					}
@@ -372,6 +383,12 @@ else window.o = m()
 				// public API, may only be called once from user code (or after the resolution
 				// of a thenable that's been returned at the end of the test)
 				function done(err) {
+					// `!!err` would be more correct as far as node callback go, but we've been
+					// using a `err != null` test for a while and no one complained...
+					_done(err, err != null)
+				}
+				// common abstraction for node-style callbacks and thenables
+				function _done(err, threw) {
 					if (isDone) throw new Error(task.doneTwiceError)
 					isDone = true
 					if (isAsync && timeout === undefined) {
@@ -384,9 +401,9 @@ else window.o = m()
 					}
 
 					// temporary, for the "old style count" report
-					if (err == null && task.error != null) {results.asyncSuccesses++}
+					if (!threw && task.error != null) {stats.asyncSuccesses++}
 
-					if (!isFinalized) finalize(err, arguments.length !== 0, false)
+					if (!isFinalized) finalize(err, threw, false)
 				}
 				// called only for async tests
 				function startTimer() {
@@ -396,7 +413,7 @@ else window.o = m()
 						finalize("async test timed out after " + delay + "ms\nWarning: assertions starting with `???` may not be properly labelled", true, true)
 					}, Math.min(delay, 0x7fffffff))
 				}
-				// for internal use only
+				// common test finalization code path, for internal use only
 				function finalize(err, threw, isTimeout) {
 					if (isFinalized) {
 						// failsafe for hacking, should never happen in released code
@@ -649,8 +666,9 @@ else window.o = m()
 		return hasProcess||!color ? "" : "color:"+color+(bold ? ";font-weight:bold" : "")
 	}
 
-	o.report = function (results) {
-		var errCount = -results.bailCount
+	o.report = function (results, stats) {
+		if (arguments.length === 1) stats = {bailCount: 0, asyncSuccesses: 0}
+		var errCount = -stats.bailCount
 		for (var i = 0, r; r = results[i]; i++) {
 			if (!r.pass) {
 				var stackTrace = o.cleanStackTrace(r.error)
@@ -670,33 +688,33 @@ else window.o = m()
 		}
 		var pl = results.length === 1 ? "" : "s"
 
-		var oldTotal = " (old style total: " + (results.length + results.asyncSuccesses) + ")"
-		var total = results.length - results.bailCount
+		var oldTotal = " (old style total: " + (results.length + stats.asyncSuccesses) + ")"
+		var total = results.length - stats.bailCount
 		var message = [], log = []
 
 		if (hasProcess) message.push("––––––\n")
 
 		if (name) message.push(name + ": ")
 
-		if (errCount === 0 && results.bailCount === 0) {
-			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal + ". ", "green"))
+		if (errCount === 0 && stats.bailCount === 0) {
+			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal, "green"))
 			log.push(cStyle("green" , true), cStyle(null))
 		} else if (errCount === 0) {
-			message.push((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal + ". ")
+			message.push((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal)
 		} else {
-			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed" + oldTotal + ". ", "red2"))
+			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed" + oldTotal, "red2"))
 			log.push(cStyle("red" , true), cStyle(null))
 		}
 
-		if (results.bailCount !== 0) {
-			message.push(highlight("Bailed out " + results.bailCount + (results.bailCount === 1 ? " time" : " times")+ ". ", "red"))
+		if (stats.bailCount !== 0) {
+			message.push(highlight(". Bailed out " + stats.bailCount + (stats.bailCount === 1 ? " time" : " times"), "red"))
 			log.push(cStyle("red"), cStyle(null))
 		}
 
 		log.unshift(message.join(""))
 		console.log.apply(console, log)
 
-		return errCount + results.bailCount
+		return errCount + stats.bailCount
 	}
 	return o
 })

@@ -215,26 +215,34 @@ function runningIn({scenario, files}, suite) {
 	})
 }
 
+function check({haystack, needle, label, expected}) {
+	// const needle = join(cwd, file) + suffix
+	const found = haystack.includes(needle)
+	o({[label]: found}).deepEquals({[label]: expected})(haystack + "\n\nexpected: " + needle)
+}
+
 function checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles}) {
 	allFiles.forEach((file) => {
-		const ranNeedle = `${join(cwd, file)} ran`
-		const ran = stdout.includes(ranNeedle)
-		const shouldHaveRun = shouldRun.has(file)
-
-		o({ran}).deepEquals({ran: shouldHaveRun})(ranNeedle)
-
-		const testNeedle = `${join(cwd, file)} had tests`
-		const hadTests = stdout.includes(testNeedle)
-		const shouldHaveTested = shouldTest.has(file)
-
-		o({hadTests}).deepEquals({hadTests: shouldHaveTested})(testNeedle)
-
+		const fullPath = join(cwd, file)
+		check({
+			haystack: stdout,
+			needle: fullPath + " ran",
+			label: "ran",
+			expected: shouldRun.has(file)
+		})
+		check({
+			haystack: stdout,
+			needle: fullPath + " had tests",
+			label: "had tests",
+			expected: shouldTest.has(file)
+		})
 		if (shouldThrow != null) {
-			const threwNeedle = `${join(cwd, file)}`
-			const threw = stderr.includes(threwNeedle)
-			const shouldHaveTrown = shouldThrow.has(file)
-	
-			o({threw}).deepEquals({threw: shouldHaveTrown})(threwNeedle)
+			check({
+				haystack: stderr,
+				needle: fullPath,
+				label: "threw",
+				expected: shouldThrow.has(file)
+			})
 		}
 	})
 }
@@ -278,7 +286,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -305,7 +313,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -326,7 +334,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -349,7 +357,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -372,7 +380,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -400,7 +408,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -429,7 +437,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 		
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -457,7 +465,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 		
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"main.js",
@@ -486,7 +494,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 6 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 6 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -511,7 +519,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 	
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -534,7 +542,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 		
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?.\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -592,7 +600,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 1})
 				o({stderr}).notDeepEquals({stderr: ""})
 		
-				o({correctNumberPassed: /All 2 assertions passed(?: \(old style total: \d+\))?. Bailed out 2 times\.\s+$/.test(stdout)})
+				o({correctNumberPassed: /All 2 assertions passed(?: \(old style total: \d+\))?\. Bailed out 2 times\s+$/.test(stdout)})
 					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
 		
 				const shouldRun = new Set([
@@ -626,7 +634,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 1})
 				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 		
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?.\s+$/.test(stdout)})
+				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
 					.deepEquals({assertionReport: false})(stdout)
 		
 				const shouldRun = new Set([
@@ -650,7 +658,7 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 1})
 				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?.\s+$/.test(stdout)})
+				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
 					.deepEquals({assertionReport: false})(stdout)
 		
 				const shouldRun = new Set([
@@ -663,6 +671,88 @@ o.spec("cli", function() {
 				])
 		
 				checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles})
+			})
+		})
+	})
+	runningIn({
+		scenario: "metadata",
+		files: [
+			"node_modules/dummy-module-with-tests-cjs/tests/should-not-run.js",
+			"node_modules/ospec/bin/ospec",
+			"node_modules/ospec/package.json",
+			"node_modules/ospec/ospec.js",
+			"package.json",
+			"default1.js",
+			"default2.js",
+			"override.js",
+		]
+	}, ({cwd, command, args}) => {
+		if (command !== "node") o("which", function() {
+			o.timeout(10000)
+			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
+				stderr = removeWrarnings(stderr)
+
+				o({code}).deepEquals({code: 0})
+				o({stderr}).deepEquals({stderr: ""})
+		
+				o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
+			})
+		})
+		o("metadata", function() {
+			o.timeout(10000)
+			return execFile(command, args("metadata"), {cwd}).then(({code, stdout, stderr}) => {
+				stderr = removeWrarnings(stderr)
+				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+
+				o({code}).deepEquals({code: 0})
+				o({stderr}).deepEquals({stderr: ""})
+		
+				o({correctNumberPassed: /All 3 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
+					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
+				const files = [
+					"default1.js", "default2.js", "override.js"
+				]
+				files.forEach((file) => {
+					const fullPath = join(cwd, file)
+					const metadataFile = file === "override.js" ? "foo" : fullPath
+
+					check({
+						haystack: stdout,
+						needle: fullPath + " ran",
+						label: "ran",
+						expected: true
+					})
+
+					check({
+						haystack: stdout,
+						needle: fullPath + " > test metadata name from test",
+						label: "metadata name from test",
+						expected: true
+					})
+
+					check({
+						haystack: stdout,
+						needle: metadataFile + " metadata file from test",
+						label: "metadata file from test",
+						expected: true
+					})
+
+					check({
+						haystack: stdout,
+						needle: fullPath + " > test metadata name from assertion",
+						label: "metadata name from assertion",
+						expected: true
+					})
+
+					check({
+						haystack: stdout,
+						needle: metadataFile + " metadata file from assertion",
+						label: "metadata file from assertion",
+						expected: true
+					})
+
+
+				})
 			})
 		})
 	})

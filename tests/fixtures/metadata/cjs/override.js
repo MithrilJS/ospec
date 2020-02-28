@@ -6,6 +6,7 @@ const o = require("ospec")
 
 o.metadata({file: "foo"})
 o.spec(__filename, function() {
+	
 o("test", function() {
 	const md = o.metadata()
 	console.log(md.file + " metadata file from test")
@@ -17,4 +18,5 @@ o("test", function() {
 		return {pass: true}
 	})
 })
+
 })

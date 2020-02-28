@@ -64,7 +64,7 @@ else window.o = m()
 	}
 
 	function noTimeoutRightNow() {
-		throw new Error("`o.timeout()` must be called synchronously from within a test definition or a hook.")
+		throw new Error("`o.timeout()` must be called synchronously from within a test definition or a hook")
 	}
 
 	function timeoutParamDeprecationNotice(n) {
@@ -90,7 +90,7 @@ else window.o = m()
 			console.warn("we couldn't determine the `done` callback name, please file a bug report at https://github.com/mithriljs/ospec/issues")
 			arg = "done"
 		}
-		return "`" + arg + "()` should only be called once."
+		return "`" + arg + "()` should only be called once"
 	}
 
 	// # Spec definition
@@ -110,11 +110,11 @@ else window.o = m()
 	function Task(fn, err, hookName) {
 		// This test needs to be here rather than in `o("name", test(){})`
 		// in order to also cover nested hooks.
-		if (isRunning() && err != null) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'.")
+		if (isRunning() && err != null) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'")
 		this.context = null
 		this.file = globalFile
 		this.depth = globalDepth
-		this.doneTwiceError = validateDone(fn, err) || "A thenable should only be resolved once."
+		this.doneTwiceError = validateDone(fn, err) || "A thenable should only be resolved once"
 		this.error = err
 		this.fn = fn
 		this.hookName = hookName
@@ -122,14 +122,15 @@ else window.o = m()
 
 	function hook(name) {
 		return function(predicate) {
-			if (globalContext[name].length > 0) throw new Error("Attempt to register o." + name + "() more than once. A spec can only have one hook of each kind.")
+			if (globalContext[name].length > 0) throw new Error("Attempt to register o." + name + "() more than once. A spec can only have one hook of each kind")
 			globalContext[name][0] = new Task(predicate, ensureStackTrace(new Error), name)
 		}
 	}
 
 	function unique(subject) {
 		if (hasOwn.call(globalContext.children, subject)) {
-			console.warn("A test or a spec named '" + subject + "' was already defined.")
+			console.warn("A test or a spec named '" + subject + "' was already defined in this spec")
+			console.warn(o.cleanStackTrace(ensureStackTrace(new Error)).split("\n")[0])
 			while (hasOwn.call(globalContext.children, subject)) subject += "*"
 		}
 		return subject
@@ -138,7 +139,7 @@ else window.o = m()
 	// # API
 	function o(subject, predicate) {
 		if (predicate === undefined) {
-			if (!isRunning()) throw new Error("Assertions should not occur outside test definitions.")
+			if (!isRunning()) throw new Error("Assertions should not occur outside test definitions")
 			return new Assertion(subject)
 		} else {
 			subject = String(subject)
@@ -152,9 +153,9 @@ else window.o = m()
 	o.afterEach = hook("afterEach")
 
 	o.specTimeout = function (t) {
-		if (isRunning()) throw new Error("o.specTimeout() can only be called before o.run().")
-		if (globalContext.specTimeout != null) throw new Error("A default timeout has already been defined in this context.")
-		if (typeof t !== "number") throw new Error("o.specTimeout() expects a number as argument.")
+		if (isRunning()) throw new Error("o.specTimeout() can only be called before o.run()")
+		if (globalContext.specTimeout != null) throw new Error("A default timeout has already been defined in this context")
+		if (typeof t !== "number") throw new Error("o.specTimeout() expects a number as argument")
 		globalContext.specTimeout = t
 	}
 
@@ -170,6 +171,7 @@ else window.o = m()
 		try {
 			predicate()
 		} catch(e) {
+			console.error(e)
 			globalContext.children[name].children = {"> > BAILED OUT < < <": new Task(function(){
 				throw e
 			}, ensureStackTrace(new Error), null)}
@@ -178,13 +180,9 @@ else window.o = m()
 		globalContext = parent
 	}
 
+	var onlyCalledAt = []
 	o.only = function(subject, predicate) {
-		if (only.length === 0) {
-			console.log(
-				highlight("Warning: o.only() mode") + "\n" + o.cleanStackTrace(ensureStackTrace(new Error)) + "\n",
-				cStyle("red"), ""
-			)
-		}
+		onlyCalledAt.push(o.cleanStackTrace(ensureStackTrace(new Error)).split("\n")[0])
 		only.push(predicate)
 		o(subject, predicate)
 	}
@@ -220,13 +218,13 @@ else window.o = m()
 		}
 	o.metadata = function(opts) {
 		if (arguments.length === 0) {
-			if (!isRunning()) throw new Error("getting o.context is only allowed at test run time")
+			if (!isRunning()) throw new Error("getting `o.metadata()` is only allowed at test run time")
 			return {
 				file: globalTestOrHook.file,
 				name: globalTestOrHook.context
 			}
 		} else {
-			if (isRunning() || globalContext !== rootSpec) throw new Error("setting o.context is only allowed at the root, at test definition time")
+			if (isRunning() || globalContext !== rootSpec) throw new Error("setting `o.metadata()` is only allowed at the root, at test definition time")
 			globalFile = opts.file
 		}
 	}
@@ -236,7 +234,8 @@ else window.o = m()
 		results = []
 		stats = {
 			asyncSuccesses: 0,
-			bailCount: 0
+			bailCount: 0,
+			onlyCalledAt: onlyCalledAt
 		}
 
 		if (hasSuiteName) {
@@ -351,7 +350,7 @@ else window.o = m()
 					}
 				}
 				globalTimeout = function timeout (t) {
-					if (typeof t !== "number") throw new Error("timeout() and o.timeout() expect a number as argument.")
+					if (typeof t !== "number") throw new Error("timeout() and o.timeout() expect a number as argument")
 					delay = t
 				}
 
@@ -441,9 +440,13 @@ else window.o = m()
 		this.i = results.length
 		results.push({
 			pass: null,
-			context: (globalTimedOutAndPendingResolution === 0 ? "" : "??? ") + globalTestOrHook.context,
 			message: "Incomplete assertion in the test definition starting at...",
-			error: globalTestOrHook.error, testError: globalTestOrHook.error
+			error: globalTestOrHook.error,
+			task: globalTestOrHook,
+			timeoutLimbo: globalTimedOutAndPendingResolution === 0,
+			// Deprecated
+			context: (globalTimedOutAndPendingResolution === 0 ? "" : "??? ") + globalTestOrHook.context,
+			testError: globalTestOrHook.error
 		})
 	}
 
@@ -551,7 +554,7 @@ else window.o = m()
 		var result = results[i]
 		result.pass = true
 		result.message = message
-		// for notSatisfies. Use the testError for other passing assertions
+		// for notSatisfies. Use the task.error for other passing assertions
 		if (error != null) result.error = error
 	}
 
@@ -668,6 +671,29 @@ else window.o = m()
 		return hasProcess||!color ? "" : "color:"+color+(bold ? ";font-weight:bold" : "")
 	}
 
+	function onlyWarning(onlyCalledAt) {
+		var colors = Math.random() > 0.5
+			? {
+				term: "red2",
+				web: cStyle("red", true)
+			}
+			: {
+				term: "re",
+				web: cStyle("red")
+			}
+		if (onlyCalledAt && onlyCalledAt.length !== 0) {
+			console.warn(
+				highlight("\n/!\\ WARNING /!\\ o.only() called...\n", colors.term),
+				colors.web, ""
+			)
+			console.warn(onlyCalledAt.join("\n"))
+			console.warn(
+				highlight("\n/!\\ WARNING /!\\ o.only()\n", colors.term),
+				colors.web, ""
+			)
+		}
+	}
+
 	o.report = function (results, stats) {
 		if (arguments.length === 1) stats = {bailCount: 0, asyncSuccesses: 0}
 		var errCount = -stats.bailCount
@@ -675,10 +701,11 @@ else window.o = m()
 			if (!r.pass) {
 				var stackTrace = o.cleanStackTrace(r.error)
 				var couldHaveABetterStackTrace = !stackTrace || timeoutStackName != null && stackTrace.indexOf(timeoutStackName) !== -1 && stackTrace.indexOf("\n") === -1
-				if (couldHaveABetterStackTrace) stackTrace = r.testError != null ? o.cleanStackTrace(r.testError) : r.error.stack || ""
+				if (couldHaveABetterStackTrace) stackTrace = r.task.error != null ? o.cleanStackTrace(r.task.error) : r.error.stack || ""
 				console.error(
 					(hasProcess ? "\n" : "") +
-					highlight(r.context + ":", "red2") + "\n" +
+					(r.task.timeoutLimbo ? "??? " : "") +
+					highlight(r.task.context + ":", "red2") + "\n" +
 					highlight(r.message, "red") +
 					(stackTrace ? "\n" + stackTrace + "\n" : ""),
 
@@ -715,6 +742,8 @@ else window.o = m()
 
 		log.unshift(message.join(""))
 		console.log.apply(console, log)
+
+		onlyWarning(stats.onlyCalledAt)
 
 		return errCount + stats.bailCount
 	}

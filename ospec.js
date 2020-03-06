@@ -181,7 +181,7 @@ else window.o = m()
 	o.only = function(subject, predicate) {
 		if (only.length === 0) {
 			console.log(
-				highlight("/!\\ WARNING /!\\ o.only() mode") + "\n" + o.cleanStackTrace(ensureStackTrace(new Error)) + "\n",
+				highlight("Warning: o.only() mode") + "\n" + o.cleanStackTrace(ensureStackTrace(new Error)) + "\n",
 				cStyle("red"), ""
 			)
 		}

@@ -101,7 +101,7 @@ else window.o = m()
 		this.afterEach = []
 		this.specTimeout = null
 		this.customAssert = null
-		this.children = {}
+		this.children = Object.create(null)
 	}
 
 	// Used for both user-defined tests and internal book keeping

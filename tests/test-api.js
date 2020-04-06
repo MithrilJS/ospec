@@ -1138,7 +1138,7 @@ o.spec("no output", function() {
 						throw new Error("line\nbreak")
 					} catch(error) {
 						var trace = oo.cleanStackTrace(error)
-						o(trace).notEquals("break")
+						o(trace.indexOf("break\n") === -1).equals(true)
 						o(trace.indexOf("test-api.js") !== -1).equals(true)
 					}
 				})
@@ -1795,7 +1795,7 @@ o.spec("no output", function() {
 					done()
 				})
 			})
-			o("throwing in the before hook causes the tests of the spec not to run", function(done) {
+			o("throwing in the before hook causes the streaks of the spec not to run", function(done) {
 				var after = o.spy()
 				var beforeEach = o.spy()
 				var afterEach = o.spy()
@@ -1804,7 +1804,7 @@ o.spec("no output", function() {
 
 				var oo = lib.new()
 				oo.before(function(){
-					throw "HAHA!"
+					throw "bye..."
 				})
 				oo.after(after)
 				oo.beforeEach(beforeEach)
@@ -1821,6 +1821,64 @@ o.spec("no output", function() {
 					o(afterEach.callCount).equals(0)
 
 					o(test.callCount).equals(0)
+
+					done()
+				})
+			})
+			o("Throwing in a beforeEach hook hollows out the streak", function(done) {
+				var oo = lib.new()
+				var beforeOuter = o.spy()
+				var afterOuter = o.spy()
+				var beforeEachOuter = o.spy(function(){throw new Error()})
+				var afterEachOuter = o.spy()
+				var testOuter1 = o.spy()
+				var testOuter2 = o.spy()
+
+				var beforeInner = o.spy()
+				var afterInner = o.spy()
+				var beforeEachInner = o.spy()
+				var afterEachInner = o.spy()
+				var testInner1 = o.spy()
+				var testInner2 = o.spy()
+
+				oo.spec("outer", function() {
+
+					oo.before(beforeOuter)
+					oo.after(afterOuter)
+					oo.beforeEach(beforeEachOuter)
+					oo.afterEach(afterEachOuter)
+					oo.spec("inner", function() {
+						oo.before(beforeInner)
+						oo.after(afterInner)
+						oo.beforeEach(beforeEachInner)
+						oo.afterEach(afterEachInner)
+						oo("test1a", testInner1)
+						oo("test1b", testInner2)
+					})
+					oo("test2a", testOuter1)
+					oo("test2b", testOuter2)
+				})
+				oo.run(function(results, stats) {
+					var passed = results.map(function(r) {return r.pass})
+
+					o(passed).deepEquals([false, false])
+					o(stats.bailCount).equals(2)("bailCount")
+
+					o(beforeOuter.callCount).equals(1)("beforeOuter")
+					o(afterOuter.callCount).equals(1)("afterOUter")
+					o(beforeInner.callCount).equals(1)("beforeInner")
+					o(beforeOuter.callCount).equals(1)("beforeOuter")
+
+
+					o(beforeEachOuter.callCount).equals(2)("afterEachOUter")
+					o(afterEachOuter.callCount).equals(2)("afterEachOUter")
+					o(beforeEachInner.callCount).equals(0)("beforeEachInner")
+					o(afterEachInner.callCount).equals(0)("afterEachInner")
+
+					o(testOuter1.callCount).equals(0)("testOuter1")
+					o(testOuter2.callCount).equals(0)("testOuter2")
+					o(testInner1.callCount).equals(0)("testInner1")
+					o(testInner2.callCount).equals(0)("testInner2")
 
 					done()
 				})

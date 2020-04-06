@@ -113,7 +113,8 @@ else window.o = m()
 		if (isRunning() && err != null) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'")
 		this.context = null
 		this.file = globalFile
-		this.depth = globalDepth
+		// give tests an extra level of depth (simplifies bail out logic)
+		this.depth = globalDepth + (hookName == null ? 1 : 0)
 		this.doneTwiceError = validateDone(fn, err) || "A thenable should only be resolved once"
 		this.error = err
 		this.fn = fn
@@ -423,12 +424,17 @@ else window.o = m()
 					if (threw) {
 						if (err instanceof Error) fail(new Assertion().i, err.message, err)
 						else fail(new Assertion().i, String(err), null)
-						if (!isTimeout) {globalBail()}
+						if (!isTimeout) {
+							globalBail()
+							if (task.hookName === "beforeEach") {
+								while (tasks[cursor].error != null && tasks[cursor].depth > task.depth) cursor++
+							}
+						}
 					}
 					if (timeout !== undefined) timeout = clearTimeout(timeout)
-					if (isAsync) {
-						next()
-					} else nextTickish(next)
+
+					if (isAsync) next()
+					else nextTickish(next)
 				}
 			}
 		}

@@ -715,7 +715,7 @@ else window.o = m()
 	}
 
 	o.report = function (results, stats) {
-		if (arguments.length === 1) stats = {bailCount: 0, asyncSuccesses: 0}
+		if (stats == null) stats = {bailCount: 0, asyncSuccesses: 0}
 		var errCount = -stats.bailCount
 		for (var i = 0, r; r = results[i]; i++) {
 			if (!r.pass) {

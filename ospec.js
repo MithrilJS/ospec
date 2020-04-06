@@ -209,13 +209,27 @@ else window.o = m()
 	}
 
 	// # Test runner
-	var stack = 0xfff
+	var stack = []
+	var scheduled = false
+	function cycleStack() {
+		try {
+			while (stack.length) stack.shift()()
+		} finally {
+			// Don't stop on error, but still let it propagate to the host as usual.
+			if (stack.length) setTimeout(cycleStack, 0)
+			else scheduled = false
+		}
+	}
 	var nextTickish = hasProcess
 		? process.nextTick
+		: typeof Promise === "function"
+		? Promise.prototype.then.bind(Promise.resolve())
 		: function fakeFastNextTick(next) {
-			// eslint-disable-next-line no-bitwise
-			if ((stack = (stack + 1) & 0xfff) === 0) setTimeout(next, stack = 0)
-			else next()
+			if (!scheduled) {
+				scheduled = true
+				setTimeout(cycleStack, 0)
+			}
+			stack.push(next)
 		}
 	o.metadata = function(opts) {
 		if (arguments.length === 0) {

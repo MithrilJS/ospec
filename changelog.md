@@ -12,12 +12,18 @@
 - [1.4.0](#140)
 - [1.3 and earlier](#13-and-earlier)
 
-### Upcoming...
 
 Change log
 ======
 
-- General cleanup and source comments. Drop the "300 LOC" pretense. Code that dense isn't readable, nor maintainable. ([#18](https://github.com/MithrilJS/ospec/pull/18))
+### Upcoming...
+
+nothing yet
+
+### 4.1.0
+_2019-08-18_
+
+- General cleanup and source comments. Drop the "300 LOC" pretense. `ospec` has grown quite a bit, possibly to the point where it needs a new name, since the lib has diverged quite a bit from its original philosophy ([#18](https://github.com/MithrilJS/ospec/pull/18))
 - Add native support for ES modules in Node versions that support it ([#13](https://github.com/MithrilJS/ospec/pull/13))
 - deprecate `--require` and intrduce `--preload` since it can not load both CommonJS packages or ES6 modules (`--require` is still supported with a warning for easing the transition).
 - Add a test suite for the CLI runner ((cjs, esm) × (npm, yarn, nodejs)) ([#17](https://github.com/MithrilJS/ospec/pull/17))

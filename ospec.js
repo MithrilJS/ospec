@@ -651,8 +651,8 @@ else window.o = m()
 	try {supportsFunctionMutations = !!Object.defineProperties(function(){}, {name: {value: "a"},length: {value: 1}})} catch(_){}
 
 	var supportsEval = false
-	// eslint-disable-next-line no-eval, no-empty
-	try {eval("supportsEval = true")} catch(e){}
+	// eslint-disable-next-line no-new-func, no-empty
+	try {supportsEval = Function("return true")()} catch(e){}
 
 	o.spy = function spy(fn) {
 		var name = "", length = 0

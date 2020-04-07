@@ -1,6 +1,6 @@
 {
   "name": "ospec",
-  "version": "4.1.1",
+  "version": "4.1.1-and-then-some",
   "description": "Noiseless testing framework",
   "main": "ospec.js",
   "unpkg": "ospec.js",
@@ -27,6 +27,6 @@
   "devDependencies": {
     "compose-regexp": "0.4.0",
     "eslint": "^6.8.0",
-    "ospec": "4.0.1"
+    "ospec": "4.1.1"
   }
 }

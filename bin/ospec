@@ -5,16 +5,26 @@ const o = require("../ospec")
 const path = require("path")
 const glob = require("glob")
 
-// eval is needed because`import()` is a syntax error in older node.js versions (pre 13.2).
-const supportsImport = (() => { try {
-	// eslint-disable-next-line no-eval
-	return Boolean(eval("import('./non-existant-file').catch(()=>{})"))
-} catch(_) {
-	return false
-}})()
-
-// eslint-disable-next-line global-require, no-eval, no-unused-vars
-const load = supportsImport ? (x) => eval("import(x)") : async (x) => require(x)
+const loaderDetected = new Promise((fulfill, reject) => {
+	try {
+		// eval is needed because`import()` is a syntax error in older node.js versions (pre 13.2)
+		// also some node versions (12.13+ at least) do support the syntax but reject the promise
+		// at run time...
+		// eslint-disable-next-line no-eval
+		eval(`
+		import('./non-existant-file').catch((e)=>{
+			if (e.message.includes('Not supported')) reject()
+			else fulfill()
+		})`)
+	} catch(_) {
+		reject()
+	}
+}).then(
+	// eslint-disable-next-line no-eval, no-unused-vars
+	() => (x) => eval("import(x)"),
+	// eslint-disable-next-line global-require
+	() => async (x) => require(x)
+)
 
 function parseArgs(argv) {
 	argv = ["--globs"].concat(argv.slice(2))
@@ -44,36 +54,37 @@ const globList = args.globs && args.globs.length ? args.globs : ["**/tests/**/*.
 const ignore = ["**/node_modules/**"].concat(args.ignore || [])
 const cwd = process.cwd()
 
-// Ensure a p
-Promise.all(args.preload.map(
-	(mod) => load(path.join(cwd, mod)).catch((e) => {
-		console.error(`could not preload ${mod}`)
-		console.error(e)
-		// eslint-disable-next-line no-process-exit
-		process.exit(1)
-	})
-)).then(
-	() => {
-		let remaining = globList.length
-		let loading = Promise.resolve()
-		globList.forEach((globPattern) => {
-			glob(globPattern, {ignore: ignore})
-				.on("match", (fileName) => {
-					var fullPath = path.join(cwd, fileName)
-					loading = loading.then(() => {
-						o.metadata({file: fullPath})
-						return load(fullPath).catch((e) => {
-							console.error(e)
-							o.spec(path.join(cwd, fileName), () => {
-								o("> > BAILED OUT < < <", function(){throw e})
+loaderDetected.then((load) => {
+	Promise.all(args.preload.map(
+		(mod) => load(path.join(cwd, mod)).catch((e) => {
+			console.error(`could not preload ${mod}`)
+			console.error(e)
+			// eslint-disable-next-line no-process-exit
+			process.exit(1)
+		})
+	)).then(
+		() => {
+			let remaining = globList.length
+			let loading = Promise.resolve()
+			globList.forEach((globPattern) => {
+				glob(globPattern, {ignore: ignore})
+					.on("match", (fileName) => {
+						var fullPath = path.join(cwd, fileName)
+						loading = loading.then(() => {
+							o.metadata({file: fullPath})
+							return load(fullPath).catch((e) => {
+								console.error(e)
+								o.spec(path.join(cwd, fileName), () => {
+									o("> > BAILED OUT < < <", function(){throw e})
+								})
 							})
 						})
 					})
-				})
-				.on("error", (e) => { console.error(e) })
-				.on("end", () => { if (--remaining === 0) loading.then(() => o.run()) })
-		})
-	}
-)
+					.on("error", (e) => { console.error(e) })
+					.on("end", () => { if (--remaining === 0) loading.then(() => o.run()) })
+			})
+		}
+	)
+})
 
 process.on("unhandledRejection", (e) => { console.error("Uncaught (in promise) " + e.stack) })

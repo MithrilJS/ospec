@@ -220,6 +220,7 @@ else window.o = m()
 			else scheduled = false
 		}
 	}
+	/* eslint-disable indent */
 	var nextTickish = hasProcess
 		? process.nextTick
 		: typeof Promise === "function"
@@ -231,6 +232,7 @@ else window.o = m()
 			}
 			stack.push(next)
 		}
+	/* eslint-enable indent */
 	o.metadata = function(opts) {
 		if (arguments.length === 0) {
 			if (!isRunning()) throw new Error("getting `o.metadata()` is only allowed at test run time")
@@ -703,12 +705,12 @@ else window.o = m()
 			}
 		if (onlyCalledAt && onlyCalledAt.length !== 0) {
 			console.warn(
-				highlight("\n/!\\ WARNING /!\\ o.only() called...\n", colors.term),
+				highlight("\nWarning: o.only() called...\n", colors.term),
 				colors.web, ""
 			)
 			console.warn(onlyCalledAt.join("\n"))
 			console.warn(
-				highlight("\n/!\\ WARNING /!\\ o.only()\n", colors.term),
+				highlight("\nWarning: o.only()\n", colors.term),
 				colors.web, ""
 			)
 		}

@@ -9,7 +9,11 @@ function stringify(x) {
 }
 
 if (typeof require !== "undefined") {
-	var loadFromDeps = (typeof process !== "undefined" && process.argv.length >= 2 && process.argv[1].match(/ospec\/node_modules\/\.bin\/ospec$/))
+	var loadFromDeps = (
+		typeof process !== "undefined"
+		&& process.argv.length >= 2
+		&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
+	)
 	/* eslint-disable global-require */
 	o = lib = require("../ospec")
 	if (loadFromDeps) o = require("ospec")
@@ -95,18 +99,22 @@ o.spec("no output", function() {
 					o(Object.getOwnPropertyNames(incomplete).sort()).deepEquals(["i", "value"])
 				})
 				oo.run(function(results) {
-					o(results.length).equals(1)
-					o(results[0].message).equals("Incomplete assertion in the test definition starting at...")
-					o(results[0].pass).equals(null)
+					try {
+						o(results.length).equals(1)
+						o(results[0].message).equals("Incomplete assertion in the test definition starting at...")
+						o(results[0].pass).equals(null)
 
-					var stack = oo.cleanStackTrace(results[0].task.error)
-					var matches2 = stack && stack.match(stackMatcher)
+						var stack = oo.cleanStackTrace(results[0].task.error)
+						var matches2 = stack && stack.match(stackMatcher)
 
-					if (matches != null && matches2 != null) {
-						o(matches[1]).equals(name)
-						o(Number(matches2[2])).equals(num + 6)
+						if (matches != null && matches2 != null) {
+							o(matches[1]).equals(name)
+							o(Number(matches2[2])).equals(num + 6)
+						}
+						done()
+					} catch (e) {
+						done(e)
 					}
-					done()
 				})
 			})
 		}
@@ -117,10 +125,14 @@ o.spec("no output", function() {
 				oo(true).equals(true)
 			})
 			oo.run(function(result) {
-				o(Array.isArray(result)).equals(true)("result is an Array")
-				o(result.length).equals(1)
-				o(result[0].pass).equals(true)
-				done()
+				try {
+					o(Array.isArray(result)).equals(true)("result is an Array")
+					o(result.length).equals(1)
+					o(result[0].pass).equals(true)
+					done()
+				} catch (e) {
+					done(e)
+				}
 			})
 		})
 
@@ -138,14 +150,18 @@ o.spec("no output", function() {
 				spy()
 			})
 			oo.run(function(results, stats){
-				o(results).deepEquals([])
-				o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0, onlyCalledAt: []})
-				if (spy.callCount !== 2) done("spy was called "+spy.callCount+" times, expected 2")
-				else done()
+				try {
+					o(results).deepEquals([])
+					o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0, onlyCalledAt: []})
+					if (spy.callCount !== 2) done("spy was called "+spy.callCount+" times, expected 2")
+					else done()
+				} catch (e) {
+					done(e)
+				}
 			})
 		})
 
-		o("timing, test definition is synchronous, test are always async", function(){
+		o("timing, test definition is synchronous, test are always async", function(done){
 			var spy = o.spy()
 			var oo = lib.new()
 			oo.spec("spec", function(){
@@ -153,12 +169,17 @@ o.spec("no output", function() {
 				spy(0)
 			})
 			oo.run(function(results){
-				o(results).deepEquals([])
-				o(spy.calls).deepEquals([
-					{this: void 0, args: [0]},
-					{this: void 0, args: [1]},
-					{this: void 0, args: [2]}
-				])
+				try {
+					o(results).deepEquals([])
+					o(spy.calls).deepEquals([
+						{this: void 0, args: [0]},
+						{this: void 0, args: [1]},
+						{this: void 0, args: [2]}
+					])
+					done()
+				} catch (e) {
+					done(e)
+				}
 			})
 			spy(1)
 		})
@@ -186,12 +207,16 @@ o.spec("no output", function() {
 				})
 
 				oo.run(function(results, stats) {
-					var passed = results.map(function(r){return r.pass})
-					var only = stats.onlyCalledAt.map(function(line){return line.indexOf("test-api.js") !== -1})
-					o(passed).deepEquals([true])
-					o(only).deepEquals([true])
+					try {
+						var passed = results.map(function(r){return r.pass})
+						var only = stats.onlyCalledAt.map(function(line){return line.indexOf("test-api.js") !== -1})
+						o(passed).deepEquals([true])
+						o(only).deepEquals([true])
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 			o("warns for every o.only() call", function(done) {
@@ -229,14 +254,18 @@ o.spec("no output", function() {
 					done("that fails")
 				})
 
-				oo.run(function(results, stats){
-					var passed = results.map(function(r){return r.pass})
-					var only = stats.onlyCalledAt.map(function(line){return line.indexOf("test-api.js") !== -1})
+				oo.run(function(results, stats) {
+					try{
+						var passed = results.map(function(r){return r.pass})
+						var only = stats.onlyCalledAt.map(function(line){return line.indexOf("test-api.js") !== -1})
 
-					o(passed).deepEquals([true, false, true, false])
-					o(only).deepEquals([true, true, true, true])
+						o(passed).deepEquals([true, false, true, false])
+						o(only).deepEquals([true, true, true, true])
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 		})
@@ -247,9 +276,13 @@ o.spec("no output", function() {
 				oo(true).equals(false)
 			})
 			oo.run(function(results) {
-				o(results.length).equals(1)("results length")
-				o(results[0].context).equals("named suite > test")
-				done()
+				try{
+					o(results.length).equals(1)("results length")
+					o(results[0].context).equals("named suite > test")
+					done()
+				} catch (e) {
+					done(e)
+				}
 			})
 		})
 
@@ -310,44 +343,49 @@ o.spec("no output", function() {
 				})
 
 				oo.run(function(results) {
-					o(typeof results).equals("object")
-					o("length" in results).equals(true)
-					o(results.length).equals(20)("Two results")
+					try{
+						o(typeof results).equals("object")
+						o("length" in results).equals(true)
+						o(results.length).equals(20)("Two results")
 
-					o(results[0].context).equals("o.before(  )")
-					o(results[1].context).equals("o.before*( wrapper )")
-					o(results[2].context).equals("o.before**( wrapper > inner )")
+						o(results[0].context).equals("o.before(  )")
+						o(results[1].context).equals("o.before*( wrapper )")
+						o(results[2].context).equals("o.before**( wrapper > inner )")
 
-					o(results[3].context).equals("o.beforeEach( wrapper > inner > fail )")
-					o(results[4].context).equals("o.beforeEach*( wrapper > inner > fail )")
-					o(results[5].context).equals("o.beforeEach**( wrapper > inner > fail )")
+						o(results[3].context).equals("o.beforeEach( wrapper > inner > fail )")
+						o(results[4].context).equals("o.beforeEach*( wrapper > inner > fail )")
+						o(results[5].context).equals("o.beforeEach**( wrapper > inner > fail )")
 
-					o("error" in results[6]).equals(true)("error key present in failing result")
-					o("pass" in results[6]).equals(true)("pass key present in failing result")
-					o("message" in results[6]).equals(true)("message key present in failing result")
-					o(results[6].context).equals("wrapper > inner > fail")
-					o(results[6].pass).equals(false)("Test meant to fail has failed")
+						o("error" in results[6]).equals(true)("error key present in failing result")
+						o("pass" in results[6]).equals(true)("pass key present in failing result")
+						o("message" in results[6]).equals(true)("message key present in failing result")
+						o(results[6].context).equals("wrapper > inner > fail")
+						o(results[6].pass).equals(false)("Test meant to fail has failed")
 
-					o(results[7].context).equals("o.afterEach**( wrapper > inner > fail )")
-					o(results[8].context).equals("o.afterEach*( wrapper > inner > fail )")
-					o(results[9].context).equals("o.afterEach( wrapper > inner > fail )")
+						o(results[7].context).equals("o.afterEach**( wrapper > inner > fail )")
+						o(results[8].context).equals("o.afterEach*( wrapper > inner > fail )")
+						o(results[9].context).equals("o.afterEach( wrapper > inner > fail )")
 
-					o(results[10].context).equals("o.beforeEach( wrapper > inner > pass )")
-					o(results[11].context).equals("o.beforeEach*( wrapper > inner > pass )")
-					o(results[12].context).equals("o.beforeEach**( wrapper > inner > pass )")
+						o(results[10].context).equals("o.beforeEach( wrapper > inner > pass )")
+						o(results[11].context).equals("o.beforeEach*( wrapper > inner > pass )")
+						o(results[12].context).equals("o.beforeEach**( wrapper > inner > pass )")
 
-					o("message" in results[13]).equals(true)("message key present in passing result")
-					o(results[13].context).equals("wrapper > inner > pass")
-					o(results[13].pass).equals(true)("Test meant to pass has passed")
+						o("message" in results[13]).equals(true)("message key present in passing result")
+						o(results[13].context).equals("wrapper > inner > pass")
+						o(results[13].pass).equals(true)("Test meant to pass has passed")
 
-					o(results[14].context).equals("o.afterEach**( wrapper > inner > pass )")
-					o(results[15].context).equals("o.afterEach*( wrapper > inner > pass )")
-					o(results[16].context).equals("o.afterEach( wrapper > inner > pass )")
+						o(results[14].context).equals("o.afterEach**( wrapper > inner > pass )")
+						o(results[15].context).equals("o.afterEach*( wrapper > inner > pass )")
+						o(results[16].context).equals("o.afterEach( wrapper > inner > pass )")
 
-					o(results[17].context).equals("o.after**( wrapper > inner )")
-					o(results[18].context).equals("o.after*( wrapper )")
-					o(results[19].context).equals("o.after(  )")
-					done()
+						o(results[17].context).equals("o.after**( wrapper > inner )")
+						o(results[18].context).equals("o.after*( wrapper )")
+						o(results[19].context).equals("o.after(  )")
+
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 		})
@@ -404,15 +442,18 @@ o.spec("no output", function() {
 					})
 
 					oo.run(function(){
+						try {
+							o(spyHookHook.callCount).equals(0)
+							o(spyHookTest.callCount).equals(0)
+							o(spyTestHook.callCount).equals(0)
+							o(spyTestTest.callCount).equals(0)
 
-						o(spyHookHook.callCount).equals(0)
-						o(spyHookTest.callCount).equals(0)
-						o(spyTestHook.callCount).equals(0)
-						o(spyTestTest.callCount).equals(0)
+							o({nestedThrows:nestedThrows}).deepEquals({nestedThrows: expectedTrows})
 
-						o({nestedThrows:nestedThrows}).deepEquals({nestedThrows: expectedTrows})
-
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("assertions", function(done) {
@@ -479,16 +520,20 @@ o.spec("no output", function() {
 					})
 
 					oo.run(function(results) {
-						results.forEach(function(result) {
-							o(result.pass).equals(true)(stringify(result))
-						})
-						o(illegalAssertionThrows).equals(true)
-						o(spy.callCount).equals(1)
-						o(spy.args.length).equals(1)
-						o(spy.args[0]).equals(1)
-						o(spy.calls.length).equals(1)
-						o(spy.calls[0]).deepEquals({this: undefined, args: [1]})
-						done()
+						try {
+							results.forEach(function(result) {
+								o(result.pass).equals(true)(stringify(result))
+							})
+							o(illegalAssertionThrows).equals(true)
+							o(spy.callCount).equals(1)
+							o(spy.args.length).equals(1)
+							o(spy.args[0]).equals(1)
+							o(spy.calls.length).equals(1)
+							o(spy.calls[0]).deepEquals({this: undefined, args: [1]})
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o.spec("spies", function() {
@@ -633,30 +678,34 @@ o.spec("no output", function() {
 					})
 				})
 				oo.run(function(results) {
-					o(results).deepEquals([])
-					o(trail.calls.map(function(call) {return call.args})).deepEquals([
-						["global before"],
-						["global before async"],
-						["spec before"],
-						["spec before async"],
-						["spec beforeEach"],
-						["spec beforeEach async"],
-						["test1"],
-						["test1 async"],
-						["spec afterEach"],
-						["spec afterEach async"],
-						["spec beforeEach"],
-						["spec beforeEach async"],
-						["test2"],
-						["test2 async"],
-						["spec afterEach"],
-						["spec afterEach async"],
-						["spec after"],
-						["spec after async"],
-						["global after"],
-						["global after async"],
-					])
-					finished()
+					try {
+						o(results).deepEquals([])
+						o(trail.calls.map(function(call) {return call.args})).deepEquals([
+							["global before"],
+							["global before async"],
+							["spec before"],
+							["spec before async"],
+							["spec beforeEach"],
+							["spec beforeEach async"],
+							["test1"],
+							["test1 async"],
+							["spec afterEach"],
+							["spec afterEach async"],
+							["spec beforeEach"],
+							["spec beforeEach async"],
+							["test2"],
+							["test2 async"],
+							["spec afterEach"],
+							["spec afterEach async"],
+							["spec after"],
+							["spec after async"],
+							["global after"],
+							["global after async"],
+						])
+						finished()
+					} catch (e) {
+						finished(e)
+					}
 				})
 			})
 			o("successful done callbacks", function(finished){
@@ -689,9 +738,13 @@ o.spec("no output", function() {
 
 				})
 				oo.run(function(results, stats) {
-					o(results).deepEquals([])
-					o(stats).deepEquals({asyncSuccesses: 6, bailCount: 0, onlyCalledAt: []})
-					finished()
+					try {
+						o(results).deepEquals([])
+						o(stats).deepEquals({asyncSuccesses: 6, bailCount: 0, onlyCalledAt: []})
+						finished()
+					} catch (e) {
+						finished(e)
+					}
 				})
 			})
 			o("unsuccessful done callbacks", function(finished){
@@ -782,12 +835,16 @@ o.spec("no output", function() {
 				})
 
 				oo.run(function(results, stats) {
-					o(results.map(function(r){return r.pass})).deepEquals([
-						false, false, false, false, false, false, false,
-						false, false, false, false, false, false, false
-					])
-					o(stats).deepEquals({asyncSuccesses: 0, bailCount: 14, onlyCalledAt: []})
-					finished()
+					try {
+						o(results.map(function(r){return r.pass})).deepEquals([
+							false, false, false, false, false, false, false,
+							false, false, false, false, false, false, false
+						])
+						o(stats).deepEquals({asyncSuccesses: 0, bailCount: 14, onlyCalledAt: []})
+						finished()
+					} catch (e) {
+						finished(e)
+					}
 				})
 			})
 			o.spec("throwing in test context is recorded as a failure", function() {
@@ -795,10 +852,14 @@ o.spec("no output", function() {
 				o.beforeEach(function(){oo = lib.new()})
 				o.afterEach(function(done) {
 					oo.run(function(results) {
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
+						try {
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 
@@ -854,16 +915,20 @@ o.spec("no output", function() {
 							// eslint-disable-next-line no-constant-condition
 							if (false) oodone()
 						})
-						oo.run((function(results) {
-							o(results.length).equals(1)
-							o(results[0].pass).equals(false)
-							// todo test cleaned up results[0].error stack trace for the presence
-							// of the timeout stack entry
-							o(results[0].task.error instanceof Error).equals(true)
-							o(oo.cleanStackTrace(results[0].task.error).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
+						oo.run(function(results) {
+							try{
+								o(results.length).equals(1)
+								o(results[0].pass).equals(false)
+								// todo test cleaned up results[0].error stack trace for the presence
+								// of the timeout stack entry
+								o(results[0].task.error instanceof Error).equals(true)
+								o(oo.cleanStackTrace(results[0].task.error).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
 
-							done()
-						}))
+								done()
+							} catch (e) {
+								done(e)
+							}
+						})
 					} else {
 						done()
 					}
@@ -880,14 +945,18 @@ o.spec("no output", function() {
 							oo.timeout(1)
 							return {then: function(){}}
 						})
-						oo.run((function(results) {
-							o(results.length).equals(1)
-							o(results[0].pass).equals(false)
-							o(results[0].task.error instanceof Error).equals(true)
-							o(oo.cleanStackTrace(results[0].task.error).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
+						oo.run(function(results) {
+							try{
+								o(results.length).equals(1)
+								o(results[0].pass).equals(false)
+								o(results[0].task.error instanceof Error).equals(true)
+								o(oo.cleanStackTrace(results[0].task.error).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
 
-							done()
-						}))
+								done()
+							} catch (e) {
+								done(e)
+							}
+						})
 					} else {
 						done()
 					}
@@ -908,10 +977,13 @@ o.spec("no output", function() {
 						return {then: function(f) {setTimeout(f)}}
 					})
 					oo.run(function(result) {
-						o(result.length).equals(0)
-						o(oTimeout.callCount).equals(3)
+						try{o(result.length).equals(0)
+							o(oTimeout.callCount).equals(3)
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("works", function(done) {
@@ -922,12 +994,16 @@ o.spec("no output", function() {
 						return {then: function() {}}
 					})
 					oo.run(function(results){
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(new Date - t >= 10).equals(true)
-						o(200 > new Date - t).equals(true)
+						try{
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(new Date - t >= 10).equals(true)
+							o(200 > new Date - t).equals(true)
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 			})
@@ -946,8 +1022,12 @@ o.spec("no output", function() {
 						return {then: function(f) {setTimeout(f)}}
 					})
 					oo.run(function(result) {
-						o(result.length).equals(0)
-						done()
+						try {
+							o(result.length).equals(0)
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("works", function(done) {
@@ -971,10 +1051,14 @@ o.spec("no output", function() {
 					})
 
 					oo.run(function(results) {
-						o(results.length).equals(2)
-						o(results[0].pass).equals(true)
-						o(results[1].pass).equals(false)
-						done()
+						try {
+							o(results.length).equals(2)
+							o(results[0].pass).equals(true)
+							o(results[1].pass).equals(false)
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("The parent and sibling suites are not affected by the specTimeout", function(done) {
@@ -1011,12 +1095,16 @@ o.spec("no output", function() {
 						})
 					})
 					oo.run(function(results) {
-						o(results.length).equals(4)
-						o(results[0].pass).equals(true)
-						o(results[1].pass).equals(false)
-						o(results[2].pass).equals(true)
-						o(results[3].pass).equals(false)
-						done()
+						try {
+							o(results.length).equals(4)
+							o(results[0].pass).equals(true)
+							o(results[1].pass).equals(false)
+							o(results[2].pass).equals(true)
+							o(results[3].pass).equals(false)
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("nested suites inherit the specTimeout", function(done) {
@@ -1044,10 +1132,14 @@ o.spec("no output", function() {
 						})
 					})
 					oo.run(function(results) {
-						o(results.length).equals(2)
-						o(results[0].pass).equals(true)
-						o(results[1].pass).equals(false)
-						done()
+						try {
+							o(results.length).equals(2)
+							o(results[0].pass).equals(true)
+							o(results[1].pass).equals(false)
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 			})
@@ -1067,8 +1159,12 @@ o.spec("no output", function() {
 						o(err.message).equals("`oodone()` should only be called once")
 					})
 					oo.run(function(results) {
-						o(results.length).equals(0)
-						done()
+						try {
+							o(results.length).equals(0)
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("a success followed by an error", function(done) {
@@ -1085,8 +1181,12 @@ o.spec("no output", function() {
 						o(err.message).equals("`oodone()` should only be called once")
 					})
 					oo.run(function(results) {
-						o(results.length).equals(0)
-						done()
+						try {
+							o(results.length).equals(0)
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("two errors", function(done) {
@@ -1103,10 +1203,14 @@ o.spec("no output", function() {
 						o(err.message).equals("`oodone()` should only be called once")
 					})
 					oo.run(function(results) {
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("bar")
-						done()
+						try {
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("bar")
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("an error followed by a success", function(done) {
@@ -1123,10 +1227,14 @@ o.spec("no output", function() {
 						o(err.message).equals("`oodone()` should only be called once")
 					})
 					oo.run(function(results) {
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("bar")
-						done()
+						try {
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("bar")
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 			})
@@ -1192,10 +1300,14 @@ o.spec("no output", function() {
 					})
 				})
 				oo.run(function(results) {
-					o(results.length).equals(0)
-					o(ran).equals(true)
+					try {
+						o(results.length).equals(0)
+						o(ran).equals(true)
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 
@@ -1209,11 +1321,15 @@ o.spec("no output", function() {
 						oo(1).equals(2)("howdy")
 					})
 					oo.run(function(results) {
-						o(results.length).equals(2)
-						o(results[1].message).equals("howdy\n\n"+results[0].message)
-						o(results[1].pass).equals(false)
+						try {
+							o(results.length).equals(2)
+							o(results[1].message).equals("howdy\n\n"+results[0].message)
+							o(results[1].pass).equals(false)
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 			})
@@ -1227,9 +1343,13 @@ o.spec("no output", function() {
 						完了()
 					})
 					oo.run(function(results){
-						o(results.length).equals(1)
-						results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
-						done()
+						try {
+							o(results.length).equals(1)
+							results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				}).notThrows(Error)
 			})
@@ -1248,9 +1368,13 @@ o.spec("no output", function() {
 						done()
 					})
 					oo.run(function(results){
-						o(results.length).equals(1)
-						results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
-						done()
+						try {
+							o(results.length).equals(1)
+							results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				}).notThrows(Error)
 			})
@@ -1260,9 +1384,13 @@ o.spec("no output", function() {
 				o(function() {
 					oo("test", eval("(function(/*hey \n*/ /**/ //ho\n done /*hey \n	*/ /**/ //huuu\n) {oo(true).equals(true);done()})"))
 					oo.run(function(results){
-						o(results.length).equals(1)
-						results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
-						done()
+						try {
+							o(results.length).equals(1)
+							results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				}).notThrows(Error)
 			})
@@ -1271,9 +1399,13 @@ o.spec("no output", function() {
 				o(function() {
 					oo("test", eval("(function(/*hey \r\n*/ /**/ //ho\r\n done /*hey \r\n	*/ /**/ //huuu\r\n) {oo(true).equals(true);done()})"))
 					oo.run(function(results){
-						o(results.length).equals(1)
-						results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
-						done()
+						try {
+							o(results.length).equals(1)
+							results.forEach(function(result) {o(result.pass).equals(true)(stringify(result))})
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				}).notThrows(Error)
 			})
@@ -1295,9 +1427,13 @@ o.spec("no output", function() {
 					)
 				*/}))
 						oo.run(function(results, stats){
-							o(results.length).equals(1)
-							o(stats.asyncSuccesses).equals(1)
-							done()
+							try {
+								o(results.length).equals(1)
+								o(stats.asyncSuccesses).equals(1)
+								done()
+							} catch (e) {
+								done(e)
+							}
 						})
 					}).notThrows(Error)
 				})
@@ -1314,9 +1450,13 @@ o.spec("no output", function() {
 					)
 				*/}))
 						oo.run(function(results, stats){
-							o(results.length).equals(1)
-							o(stats.asyncSuccesses).equals(1)
-							done()
+							try {
+								o(results.length).equals(1)
+								o(stats.asyncSuccesses).equals(1)
+								done()
+							} catch (e) {
+								done(e)
+							}
 						})
 					}).notThrows(Error)
 				})
@@ -1378,9 +1518,13 @@ o.spec("no output", function() {
 					)
 				*/}))
 						oo.run(function(results, stats){
-							o(results.length).equals(1)
-							o(stats.asyncSuccesses).equals(1)
-							done()
+							try {
+								o(results.length).equals(1)
+								o(stats.asyncSuccesses).equals(1)
+								done()
+							} catch (e) {
+								done(e)
+							}
 						})
 					}).notThrows(Error)
 				})
@@ -1460,12 +1604,16 @@ o.spec("no output", function() {
 						oo(5).satisfies(getsFiveAndReturnsString)
 					})
 					oo.run(function(results) {
-						o(getsFiveAndReturnsString.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(true)
-						o(results[0].message).equals("Ok")
+						try {
+							o(getsFiveAndReturnsString.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(true)
+							o(results[0].message).equals("Ok")
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("passes when returning non-string", function(done) {
@@ -1478,12 +1626,16 @@ o.spec("no output", function() {
 						oo(5).satisfies(getsFiveAndReturnsNumber)
 					})
 					oo.run(function(results) {
-						o(getsFiveAndReturnsNumber.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(true)
-						o(results[0].message).equals("5")("stringified message")
+						try {
+							o(getsFiveAndReturnsNumber.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(true)
+							o(results[0].message).equals("5")("stringified message")
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("fails when throwing string", function(done) {
@@ -1498,13 +1650,16 @@ o.spec("no output", function() {
 						oo(5).satisfies(getsFiveandThrowsString)
 					})
 					oo.run(function(results) {
+						try {
+							o(getsFiveandThrowsString.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("Not Ok")
 
-						o(getsFiveandThrowsString.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("Not Ok")
-
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("fails when not passing with a number", function(done) {
@@ -1519,13 +1674,16 @@ o.spec("no output", function() {
 						oo(5).satisfies(getsFiveandThrowsNumber)
 					})
 					oo.run(function(results) {
+						try {
+							o(getsFiveandThrowsNumber.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("5")("stringified message")
 
-						o(getsFiveandThrowsNumber.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("5")("stringified message")
-
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("bails when throwing error", function(done) {
@@ -1541,15 +1699,18 @@ o.spec("no output", function() {
 						oo(5).satisfies(getsFiveandThrowsError)
 					})
 					oo.run(function(results, stats) {
+						try {
+							o(getsFiveandThrowsError.callCount).equals(1)
+							o(results.length).equals(1)
+							o(stats.bailCount).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("An Error")
+							o(results[0].error).equals(err)
 
-						o(getsFiveandThrowsError.callCount).equals(1)
-						o(results.length).equals(1)
-						o(stats.bailCount).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("An Error")
-						o(results[0].error).equals(err)
-
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 			})
@@ -1564,12 +1725,16 @@ o.spec("no output", function() {
 						oo(5).notSatisfies(getsFiveAndReturnsString)
 					})
 					oo.run(function(results) {
-						o(getsFiveAndReturnsString.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("Ok")
+						try {
+							o(getsFiveAndReturnsString.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("Ok")
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("fails when passing with a non-string", function(done) {
@@ -1582,12 +1747,15 @@ o.spec("no output", function() {
 						oo(5).notSatisfies(getsFiveAndReturnsNumber)
 					})
 					oo.run(function(results) {
-						o(getsFiveAndReturnsNumber.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("5")("stringified message")
+						try {o(getsFiveAndReturnsNumber.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("5")("stringified message")
 
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("succeeds when not passing with a string", function(done) {
@@ -1602,13 +1770,16 @@ o.spec("no output", function() {
 						oo(5).notSatisfies(getsFiveandThrowsString)
 					})
 					oo.run(function(results) {
+						try {
+							o(getsFiveandThrowsString.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(true)
+							o(results[0].message).equals("Not Ok")
 
-						o(getsFiveandThrowsString.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(true)
-						o(results[0].message).equals("Not Ok")
-
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("succeeds when not passing with a number", function(done) {
@@ -1623,13 +1794,16 @@ o.spec("no output", function() {
 						oo(5).notSatisfies(getsFiveandThrowsNumber)
 					})
 					oo.run(function(results) {
+						try {
+							o(getsFiveandThrowsNumber.callCount).equals(1)
+							o(results.length).equals(1)
+							o(results[0].pass).equals(true)
+							o(results[0].message).equals("5")("stringified message")
 
-						o(getsFiveandThrowsNumber.callCount).equals(1)
-						o(results.length).equals(1)
-						o(results[0].pass).equals(true)
-						o(results[0].message).equals("5")("stringified message")
-
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 				o("bails when throwing error", function(done) {
@@ -1645,15 +1819,18 @@ o.spec("no output", function() {
 						oo(5).notSatisfies(getsFiveandThrowsError)
 					})
 					oo.run(function(results, stats) {
+						try {
+							o(getsFiveandThrowsError.callCount).equals(1)
+							o(stats).deepEquals({asyncSuccesses: 0, bailCount: 1, onlyCalledAt: []})
+							o(results.length).equals(1)
+							o(results[0].pass).equals(false)
+							o(results[0].message).equals("An Error")
+							o(results[0].error).equals(err)
 
-						o(getsFiveandThrowsError.callCount).equals(1)
-						o(stats).deepEquals({asyncSuccesses: 0, bailCount: 1, onlyCalledAt: []})
-						o(results.length).equals(1)
-						o(results[0].pass).equals(false)
-						o(results[0].message).equals("An Error")
-						o(results[0].error).equals(err)
-
-						done()
+							done()
+						} catch (e) {
+							done(e)
+						}
 					})
 				})
 			})
@@ -1680,17 +1857,21 @@ o.spec("no output", function() {
 				oo("skipped", secondTest)
 
 				oo.run(function(results) {
-					o(results.length).equals(1)
-					o(results[0].pass).equals(false)
+					try {
+						o(results.length).equals(1)
+						o(results[0].pass).equals(false)
 
-					o(before.callCount).equals(1)
-					o(after.callCount).equals(1)
-					o(beforeEach.callCount).equals(1)
-					o(afterEach.callCount).equals(1)
+						o(before.callCount).equals(1)
+						o(after.callCount).equals(1)
+						o(beforeEach.callCount).equals(1)
+						o(afterEach.callCount).equals(1)
 
-					o(secondTest.callCount).equals(0)
+						o(secondTest.callCount).equals(0)
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 			o("Two tests, the second one nested in a spec. Throwing in the first causes the second not to run", function(done) {
@@ -1726,22 +1907,25 @@ o.spec("no output", function() {
 				})
 
 				oo.run(function(results) {
-					o(results.length).equals(1)
-					o(results[0].pass).equals(false)
+					try {o(results.length).equals(1)
+						o(results[0].pass).equals(false)
 
-					o(before.callCount).equals(1)
-					o(after.callCount).equals(1)
-					o(beforeEach.callCount).equals(1)
-					o(afterEach.callCount).equals(1)
+						o(before.callCount).equals(1)
+						o(after.callCount).equals(1)
+						o(beforeEach.callCount).equals(1)
+						o(afterEach.callCount).equals(1)
 
-					o(before2.callCount).equals(0)
-					o(after2.callCount).equals(0)
-					o(beforeEach2.callCount).equals(0)
-					o(afterEach2.callCount).equals(0)
+						o(before2.callCount).equals(0)
+						o(after2.callCount).equals(0)
+						o(beforeEach2.callCount).equals(0)
+						o(afterEach2.callCount).equals(0)
 
-					o(secondTest.callCount).equals(0)
+						o(secondTest.callCount).equals(0)
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 			o("Two tests, the first one nested in a spec. Throwing in the first doesn't causes the second not to run", function(done) {
@@ -1777,22 +1961,26 @@ o.spec("no output", function() {
 				oo("runs", secondTest)
 
 				oo.run(function(results) {
-					o(results.length).equals(1)
-					o(results[0].pass).equals(false)
+					try {
+						o(results.length).equals(1)
+						o(results[0].pass).equals(false)
 
-					o(before.callCount).equals(1)
-					o(after.callCount).equals(1)
-					o(beforeEach.callCount).equals(2)
-					o(afterEach.callCount).equals(2)
+						o(before.callCount).equals(1)
+						o(after.callCount).equals(1)
+						o(beforeEach.callCount).equals(2)
+						o(afterEach.callCount).equals(2)
 
-					o(before2.callCount).equals(1)
-					o(after2.callCount).equals(1)
-					o(beforeEach2.callCount).equals(1)
-					o(afterEach2.callCount).equals(1)
+						o(before2.callCount).equals(1)
+						o(after2.callCount).equals(1)
+						o(beforeEach2.callCount).equals(1)
+						o(afterEach2.callCount).equals(1)
 
-					o(secondTest.callCount).equals(1)
+						o(secondTest.callCount).equals(1)
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 			o("throwing in the before hook causes the streaks of the spec not to run", function(done) {
@@ -1813,16 +2001,20 @@ o.spec("no output", function() {
 				oo("skipped", test)
 
 				oo.run(function(results) {
-					o(results.length).equals(1)
-					o(results[0].pass).equals(false)
+					try {
+						o(results.length).equals(1)
+						o(results[0].pass).equals(false)
 
-					o(after.callCount).equals(1)
-					o(beforeEach.callCount).equals(0)
-					o(afterEach.callCount).equals(0)
+						o(after.callCount).equals(1)
+						o(beforeEach.callCount).equals(0)
+						o(afterEach.callCount).equals(0)
 
-					o(test.callCount).equals(0)
+						o(test.callCount).equals(0)
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 			o("Throwing in a beforeEach hook hollows out the streak", function(done) {
@@ -1859,28 +2051,32 @@ o.spec("no output", function() {
 					oo("test2b", testOuter2)
 				})
 				oo.run(function(results, stats) {
-					var passed = results.map(function(r) {return r.pass})
+					try {
+						var passed = results.map(function(r) {return r.pass})
 
-					o(passed).deepEquals([false, false])
-					o(stats.bailCount).equals(2)("bailCount")
+						o(passed).deepEquals([false, false])
+						o(stats.bailCount).equals(2)("bailCount")
 
-					o(beforeOuter.callCount).equals(1)("beforeOuter")
-					o(afterOuter.callCount).equals(1)("afterOUter")
-					o(beforeInner.callCount).equals(1)("beforeInner")
-					o(beforeOuter.callCount).equals(1)("beforeOuter")
+						o(beforeOuter.callCount).equals(1)("beforeOuter")
+						o(afterOuter.callCount).equals(1)("afterOUter")
+						o(beforeInner.callCount).equals(1)("beforeInner")
+						o(beforeOuter.callCount).equals(1)("beforeOuter")
 
 
-					o(beforeEachOuter.callCount).equals(2)("afterEachOUter")
-					o(afterEachOuter.callCount).equals(2)("afterEachOUter")
-					o(beforeEachInner.callCount).equals(0)("beforeEachInner")
-					o(afterEachInner.callCount).equals(0)("afterEachInner")
+						o(beforeEachOuter.callCount).equals(2)("afterEachOUter")
+						o(afterEachOuter.callCount).equals(2)("afterEachOUter")
+						o(beforeEachInner.callCount).equals(0)("beforeEachInner")
+						o(afterEachInner.callCount).equals(0)("afterEachInner")
 
-					o(testOuter1.callCount).equals(0)("testOuter1")
-					o(testOuter2.callCount).equals(0)("testOuter2")
-					o(testInner1.callCount).equals(0)("testInner1")
-					o(testInner2.callCount).equals(0)("testInner2")
+						o(testOuter1.callCount).equals(0)("testOuter1")
+						o(testOuter2.callCount).equals(0)("testOuter2")
+						o(testInner1.callCount).equals(0)("testInner1")
+						o(testInner2.callCount).equals(0)("testInner2")
 
-					done()
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 		})
@@ -1903,8 +2099,12 @@ o.spec("no output", function() {
 					})
 				})
 				oo.run(function(results) {
-					o(results.map(function(r) {return {pass: r.pass}})).deepEquals([{pass: true}])
-					done()
+					try {
+						o(results.map(function(r) {return {pass: r.pass}})).deepEquals([{pass: true}])
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 			o("setting works at root, throws elsewhere", function(done) {
@@ -1921,10 +2121,14 @@ o.spec("no output", function() {
 					o(function(){oo.metadata({file: "bar"})}).throws(Error)
 				})
 				oo.run(function(results, stats) {
-					o(spy.callCount).equals(2)
-					o(results).deepEquals([])
-					o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0, onlyCalledAt: []})
-					done()
+					try {
+						o(spy.callCount).equals(2)
+						o(results).deepEquals([])
+						o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0, onlyCalledAt: []})
+						done()
+					} catch (e) {
+						done(e)
+					}
 				})
 			})
 		})
@@ -1997,19 +2201,23 @@ o.spec("legacy argument timeout", function() {
 				// eslint-disable-next-line no-constant-condition
 				if (false) oodone()
 			})
-			oo.run((function(results) {
-				o(results.length).equals(1)
-				o(results[0].pass).equals(false)
-				// todo test cleaned up results[0].error stack trace for the presence
-				// of the timeout stack entry
-				o(results[0].task.error instanceof Error).equals(true)
-				o(oo.cleanStackTrace(results[0].task.error).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
-				o(console.error.callCount).equals(1)
-				o(console.error.args[0] instanceof Error).equals(true)
-				o(console.error.args[0].message).equals("`timeout()` as a test argument has been deprecated, use `o.timeout()`")
+			oo.run(function(results) {
+				try {
+					o(results.length).equals(1)
+					o(results[0].pass).equals(false)
+					// todo test cleaned up results[0].error stack trace for the presence
+					// of the timeout stack entry
+					o(results[0].task.error instanceof Error).equals(true)
+					o(oo.cleanStackTrace(results[0].task.error).indexOf("test-api.js:" + (line + 3) + ":")).notEquals(-1)
+					o(console.error.callCount).equals(1)
+					o(console.error.args[0] instanceof Error).equals(true)
+					o(console.error.args[0].message).equals("`timeout()` as a test argument has been deprecated, use `o.timeout()`")
 
-				done()
-			}))
+					done()
+				} catch (e) {
+					done(e)
+				}
+			})
 		} else {
 			done()
 		}

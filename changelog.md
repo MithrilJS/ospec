@@ -20,8 +20,15 @@ Change log
 
 nothing yet
 
+### 4.1.1
+_2020-04-07_
+
+#### Bug fixes
+- Fix the runner for Node.js v12 (which parses dynamic `import()` calls, but rejects the promise)
+- Fix various problems with the tests
+
 ### 4.1.0
-_2019-08-18_
+_2020-04-06_
 
 - General cleanup and source comments. Drop the "300 LOC" pretense. `ospec` has grown quite a bit, possibly to the point where it needs a new name, since the lib has diverged quite a bit from its original philosophy ([#18](https://github.com/MithrilJS/ospec/pull/18))
 - Add native support for ES modules in Node versions that support it ([#13](https://github.com/MithrilJS/ospec/pull/13))

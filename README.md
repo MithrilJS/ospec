@@ -585,7 +585,7 @@ $o.run()
 
 ### throwing Errors
 
-When an error is thrown some tests may be skipped. See the "run time semantics" for a detailed description of the bailout mechanism.
+When an error is thrown some tests may be skipped. See the "run time model" for a detailed description of the bailout mechanism.
 
 ---
 
@@ -673,21 +673,21 @@ o.spec("testing", function() {
 - A given test and its associated `beforeEach` and `afterEach` hooks form a **streak**. The `beforeEach` hooks run outermost first, the `afterEach` run outermost last. The hooks are optional, and are tied at test-definition time in the `o.spec()` calls that enclose the test.
 - A **spec** is a collection of streaks, specs, one `before` *hook* and one `after` *hook*. Each component is optional. Specs are defined with the `o.spec("spec name", function specDef() {})` calls.
 
-### The three phases
+### The phases of an ospec run
 
 For a given instance, an `ospec` run goes through three phases:
 
-1) test definitions
-1) test execution and results accumulation
+1) tests definition
+1) tests execution and results accumulation
 1) results presentation
 
-#### Test definition
+#### Tests definition
 
 This phase is synchronous. `o.spec("spec name", function specDef() {})`, `o("test name", function test() {})` and hooks calls generate a tree of specs and tests.
 
 #### Test execution and results accumulation
 
-At test-run time, for each spec, the `before` hook is called if present, then nested specs the streak of each test, in definition order, then the `after` hook, if present.
+At test execution time, for each spec, the `before` hook is called if present, then nested specs the streak of each test, in definition order, then the `after` hook, if present.
 
 Test and hooks may contain assertions, which will populate the `results` array.
 
@@ -703,11 +703,11 @@ While some testing libraries consider error thrown as assertions failure, `ospec
 - At test-definition time:
   - An error thrown at the root of a file will cause subsequent tests and specs to be ignored
   - An error thrown in a spec definition will cause the spec to be ignored.
-- At test-run time:
+- At test-execution time:
   - An error thrown in the `before` hook will cause the streaks and nested specs to be ignored. The `after` hook will run.
   - An error thrown in a task...
     - ...prevents further streaks and nested specs in the current spec from running. The `after` *hook* of the spec will run.
-    - ...if thrown in a `beforeEach` hook of a streak, causes the streak to be hollowed out. Hooks defined in nested scopes and the actual test will not run. The `afterEach` hookcorresponding to the one that crashed will run though as will those defined in outer scopes.
+    - ...if thrown in a `beforeEach` hook of a streak, causes the streak to be hollowed out. Hooks defined in nested scopes and the actual test will not run. The `afterEach` hook corresponding to the one that crashed will run though as will those defined in outer scopes.
   
 For every error thrown, a "bail out" failure is reported.
 

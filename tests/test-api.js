@@ -15,7 +15,7 @@ if (typeof require !== "undefined") {
 		&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
 	)
 	/* eslint-disable global-require */
-	o = lib = require("../ospec")
+	o = lib = require("../export/nodeRequire.js")
 	if (loadFromDeps) o = require("ospec")
 	/* eslint-enable global-require */
 } else {

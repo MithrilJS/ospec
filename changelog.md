@@ -18,7 +18,7 @@ Change log
 
 ### Upcoming...
 
-nothing yet
+Conditional exports for node with commonjs, node with es modules and browser.
 
 ### 4.1.1
 _2020-04-07_

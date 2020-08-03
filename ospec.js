@@ -25,14 +25,17 @@ In each of these tasks:
 */
 
 
-;(function(m) {
-if (typeof module !== "undefined") module["exports"] = m()
-else window.o = m()
-})(function init(name) {
+;(function (m) {
+	if (typeof module !== "undefined") {
+		module["exports"] = function (inspect) {return m(inspect) }
+	} else {
+		window.o = m(null)
+	}
+})(function init(inspect, name) {
 	// # Setup
 	// const
 	var hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
-	var hasSuiteName = arguments.length !== 0
+	var hasSuiteName = name !== undefined
 	var only = []
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
 	var rootSpec = new Spec()
@@ -160,7 +163,7 @@ else window.o = m()
 		globalContext.specTimeout = t
 	}
 
-	o.new = init
+	o.new = function (name) { return init(inspect, name) }
 
 	o.spec = function(subject, predicate) {
 		if (isRunning()) throw new Error("`o.spec()` can't only be called at test definition time, not run time")

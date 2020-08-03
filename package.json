@@ -11,7 +11,8 @@
   "license": "MIT",
   "files": [
     "ospec.js",
-    "bin"
+    "bin",
+    "export"
   ],
   "bin": "./bin/ospec",
   "repository": "github:MithrilJS/ospec",
@@ -28,5 +29,13 @@
     "compose-regexp": "0.4.0",
     "eslint": "^6.8.0",
     "ospec": "4.1.1"
+  },
+  "module": "./export/default.js",
+  "exports": {
+    "node": {
+      "import": "./export/nodeImport.js",
+      "require": "./export/nodeRequire.js"
+    },
+    "default": "./export/default.js"
   }
 }

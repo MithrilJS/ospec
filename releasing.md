@@ -1,16 +1,12 @@
-# Mithril Release Processes
+# ospec Release Processes
 
-**Note** These steps all assume that `MithrilJS/mithril.js` is a git remote named `mithriljs`, adjust accordingly if that doesn't match your setup.
-
-- [Releasing a new Mithril version](#releasing-a-new-mithril-version)
-- [Updating mithril.js.org](#updating-mithriljsorg)
-- [Releasing a new ospec version](#releasing-a-new-ospec-version)
+**Note** These steps all assume that `MithrilJS/ospec` is a git remote named `upstream`, adjust accordingly if that doesn't match your setup.
 
 1. Ensure your local branch is up to date
 
 ```bash
 $ git checkout next
-$ git pull --rebase mithriljs master
+$ git pull --rebase upstream master
 ```
 
 2. Determine patch level of the change
@@ -27,7 +23,7 @@ $ git commit -m "v<version>"
 $ git push
 
 # Push to MithrilJS/mithril.js
-$ git push mithriljs master
+$ git push upstream master
 ```
 
 6. Ensure the tests are passing!
@@ -37,7 +33,7 @@ $ git push mithriljs master
 7. Push the changes to `MithrilJS/mithril.js`
 
 ```bash
-$ git push mithriljs master
+$ git push upstream master
 ```
 
 8. Publish the changes to npm.

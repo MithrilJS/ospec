@@ -21,7 +21,7 @@ const loaderDetected = new Promise((fulfill, reject) => {
 	}
 }).then(
 	// eslint-disable-next-line no-eval, no-unused-vars
-	() => (x) => eval("import(x)"),
+	() => (x) => eval("import('file:'+x)"),
 	// eslint-disable-next-line global-require
 	() => async (x) => require(x)
 )

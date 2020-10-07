@@ -10,8 +10,8 @@ $ git pull --rebase upstream master
 ```
 
 2. Determine patch level of the change
-3. Update `version` field in `ospec/package.json` to match new version being prepared for release.
-4. Update `ospec/changelog.md` to match new version being prepared for release.
+3. Update `version` field in `package.json` to match new version being prepared for release.
+4. Update `changelog.md` to match new version being prepared for release.
 	- Don't forget to add today's date under the version heading!
 5. Commit changes to `master`
 
@@ -22,7 +22,7 @@ $ git commit -m "v<version>"
 # Push to your branch
 $ git push
 
-# Push to MithrilJS/mithril.js
+# Push to MithrilJS/ospec
 $ git push upstream master
 ```
 
@@ -30,7 +30,7 @@ $ git push upstream master
 
 ### Publish the release
 
-7. Push the changes to `MithrilJS/mithril.js`
+7. Push the changes to `MithrilJS/ospec`
 
 ```bash
 $ git push upstream master

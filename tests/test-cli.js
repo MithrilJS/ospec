@@ -1,12 +1,7 @@
 /* eslint-disable wrap-regex */
 "use strict"
 
-const loadFromDeps = (
-	typeof process !== "undefined"
-	&& process.argv.length >= 2
-	&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
-)
-const o = loadFromDeps ? require("ospec") : require("../ospec")
+const o = require("ospec")
 const fs = require("fs")
 const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = fs.promises
 const {join} = require("path")
@@ -43,29 +38,14 @@ if (commands.length === 0) throw new Error("couldn't find either node, npm nor y
 
 const isWindows = process.platform === "win32"
 
-const winBashscript = `#!/bin/sh
-basedir=$(dirname "$(echo "$0" | sed -e 's,\\,/,g')")
-
-case \`uname\` in
-    *CYGWIN*) basedir=\`cygpath -w "$basedir"\`;;
-esac
-
-node  "$basedir/../mime/cli.js" "$@"
-ret=$?
-
-exit $ret
-`
-
-const winCmdScript = `
-@SETLOCAL
-@SET PATHEXT=%PATHEXT:;.JS;=;%
-node  "%~dp0\\..\\ospec\\bin\\ospec" %*
-`
+// The scripts' sources were copied from npm's scripts.
+const winScriptDir = join(fixturesDir, "windows-dot-bin")
 
 const finalizeBinaryInstall = isWindows
 	? async (path) => {
-		await writeFile(join(path, "ospec.cmd"), winCmdScript)
-		await writeFile(join(path, "ospec"), winBashscript)
+		await Promise.all(["ospec", "ospec.cmd", "ospec.ps1"].map((name) =>
+			copyFile(join(winScriptDir, name), join(path, name))
+		))
 	}
 	: async (path) => {
 		await symlink("../ospec/bin/ospec", join(path, "ospec"))
@@ -103,10 +83,11 @@ function removeYarnExtraOutput(stdout) {
 function checkIfFilesExist(cwd, files) {
 	return Promise.all(files.map((list) => {
 		const path = join(cwd, ...list.split("/"))
+		// FIXME: revert these back to one line after next ospec update
 		return lstat(path).then(
-			() => {o({found: true}).deepEquals({found: true})(path)}
+			() => {const test = o({found: true}).deepEquals({found: true}); if (test) test(path)}
 		).catch(
-			(e) => o(e.stack).equals(false)("sanity check failed")
+			(e) => { const test = o(e.stack).equals(false); if (test) test("sanity check failed") }
 		)
 	}))
 }
@@ -205,16 +186,18 @@ function runningIn({scenario, files}, suite) {
 						({code, stdout, stderr}) => {
 							stdout = stdout.replace(/\r?\n$/, "")
 							stderr = removeWarrnings(stderr)
-							o({code}).deepEquals({code: 0})(snrPath)
-							o({stdout}).deepEquals({stdout: `${snrPath} ran`})(snrPath)
-							o({stderr}).deepEquals({stderr: ""})(snrPath)
+							// FIXME: revert these back to one line after next ospec update
+							let test
+							test = o({code}).deepEquals({code: 0}); if (test) test(snrPath)
+							test = o({stdout}).deepEquals({stdout: `${snrPath} ran`}); if (test) test(snrPath)
+							test = o({stderr}).deepEquals({stderr: ""}); if (test) test(snrPath)
 						},
 					)
 				})
 				commands.forEach((command) => {
 					o.spec(command, () => {
 						const args = command === "node"
-							? (script) => ["./node_modules/.bin/ospec", config["package.json"].scripts[script].slice(6)]
+							? (script) => ["./node_modules/ospec/bin/ospec", config["package.json"].scripts[script].slice(6)]
 							: (script) => ["run", script]
 
 
@@ -229,7 +212,19 @@ function runningIn({scenario, files}, suite) {
 function check({haystack, needle, label, expected}) {
 	// const needle = join(cwd, file) + suffix
 	const found = haystack.includes(needle)
-	o({[label]: found}).deepEquals({[label]: expected})(haystack + "\n\nexpected: " + needle)
+	if (!found) {
+		fs.writeSync(1, `- ${label}
+> ${expected ? "expected" : "not expected"}: ${needle}
+
+${haystack}
+
+----------------------------------------------------------------------
+
+`)
+	}
+	// FIXME: revert this back to one line after next ospec update
+	const test = o({[label]: found}).deepEquals({[label]: expected})
+	if (test) test(haystack + "\n\nexpected: " + needle)
 }
 
 function checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles}) {
@@ -285,7 +280,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
+				// FIXME: revert this back to one line after next ospec update
+				const test = o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})
+				if (test) test(stdout)
 			})
 		})
 		o("default", function() {
@@ -297,7 +294,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -324,7 +323,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -345,7 +346,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -368,7 +371,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -391,7 +396,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -419,7 +426,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -448,7 +457,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -476,7 +487,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -505,7 +518,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 6 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 6 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -530,7 +545,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -553,7 +570,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)
+				if (test) test(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -599,7 +618,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
+				// FIXME: revert this back to one line after next ospec update
+				const test = o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})
+				if (test) test(stdout)
 			})
 		})
 		o("default", function() {
@@ -611,8 +632,10 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 1})
 				o({stderr}).notDeepEquals({stderr: ""})
 
-				o({correctNumberPassed: /All 2 assertions passed(?: \(old style total: \d+\))?\. Bailed out 2 times\s+$/.test(stdout)})
-					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o({correctNumberPassed: /All 2 assertions passed(?: \(old style total: \d+\))?\. Bailed out 2 times\s+$/.test(stdout)})
+					.deepEquals({correctNumberPassed: true})
+				if (test) test(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -645,8 +668,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 1})
 				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
-					.deepEquals({assertionReport: false})(stdout)
+				const test = o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
+					.deepEquals({assertionReport: false})
+				if (test) test(stdout)
 
 				const shouldRun = new Set([
 					"main.js",
@@ -669,8 +693,10 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 1})
 				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
-					.deepEquals({assertionReport: false})(stdout)
+				// FIXME: revert this back to one line after next ospec update
+				const test = o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
+					.deepEquals({assertionReport: false})
+				if (test) test(stdout)
 
 				const shouldRun = new Set([
 					"main.js",
@@ -706,7 +732,9 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
+				// FIXME: revert this back to one line after next ospec update
+				const test = o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})
+				if (test) test(stdout)
 			})
 		})
 		o("metadata", function() {
@@ -718,8 +746,10 @@ o.spec("cli", function() {
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o({correctNumberPassed: /All 3 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
-					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
+				// FIXME: revert this back to one line after next ospec update
+				const test = o({correctNumberPassed: /All 3 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
+					.deepEquals({correctNumberPassed: true})
+				if (test) test(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
 				const files = [
 					"default1.js", "default2.js", "override.js"
 				]

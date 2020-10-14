@@ -1,6 +1,7 @@
 # Change log for ospec
 
 - [Upcoming](#upcoming)
+- [4.1.2](#412)
 - [4.1.1](#411)
 - [4.1.0](#410)
 - [4.0.1](#401)
@@ -19,6 +20,9 @@ Change log
 ======
 
 ### Upcoming...
+
+### 4.1.2
+_2020-10-06_
 
 - Fix `import` call so it can properly invoke files.
 

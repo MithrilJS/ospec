@@ -9,14 +9,9 @@ function stringify(x) {
 }
 
 if (typeof require !== "undefined") {
-	var loadFromDeps = (
-		typeof process !== "undefined"
-		&& process.argv.length >= 2
-		&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
-	)
 	/* eslint-disable global-require */
-	o = lib = require("../ospec")
-	if (loadFromDeps) o = require("ospec")
+	o = require("ospec")
+	lib = require("../ospec")
 	/* eslint-enable global-require */
 } else {
 	o = lib = window.o

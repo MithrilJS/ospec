@@ -6,17 +6,22 @@ const loadFromDeps = (
 	&& process.argv.length >= 2
 	&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
 )
+const isWindows = process.platform === "win32"
+
 const o = loadFromDeps ? require("ospec") : require("../ospec")
+
 const fs = require("fs")
 const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = fs.promises
 const {join} = require("path")
 const chp = require("child_process")
+const linkOrShim = isWindows ? require("cmd-shim") : symlink
 
 const projectCwd = process.cwd()
 const ospecPkgJsonPath = join(projectCwd, "package.json")
 const ospecLibPath = join(projectCwd, "ospec.js")
 const ospecBinPath = join(projectCwd, "bin/ospec")
 const fixturesDir = join(projectCwd, "./tests/fixtures")
+
 
 const parsed = /^v(\d+)\.(\d+)\./.exec(process.version)
 
@@ -32,7 +37,10 @@ const moduleKinds = supportsESM
 const commands = ["node", "npm", "yarn"].filter((launcher) => {
 	try {
 		chp.execFileSync(launcher, ["-v"])
-		return true
+		// Avoid running with bare Node for now from Windows
+		// TODO: better abstract command running to
+		// handle this scenario
+		return !isWindows || launcher !== "node"
 	} catch(e) {
 		return false
 	}
@@ -40,36 +48,6 @@ const commands = ["node", "npm", "yarn"].filter((launcher) => {
 
 // not sure how that could happen...
 if (commands.length === 0) throw new Error("couldn't find either node, npm nor yarn")
-
-const isWindows = process.platform === "win32"
-
-const winBashscript = `#!/bin/sh
-basedir=$(dirname "$(echo "$0" | sed -e 's,\\,/,g')")
-
-case \`uname\` in
-    *CYGWIN*) basedir=\`cygpath -w "$basedir"\`;;
-esac
-
-node  "$basedir/../mime/cli.js" "$@"
-ret=$?
-
-exit $ret
-`
-
-const winCmdScript = `
-@SETLOCAL
-@SET PATHEXT=%PATHEXT:;.JS;=;%
-node  "%~dp0\\..\\ospec\\bin\\ospec" %*
-`
-
-const finalizeBinaryInstall = isWindows
-	? async (path) => {
-		await writeFile(join(path, "ospec.cmd"), winCmdScript)
-		await writeFile(join(path, "ospec"), winBashscript)
-	}
-	: async (path) => {
-		await symlink("../ospec/bin/ospec", join(path, "ospec"))
-	}
 
 function execFile(command, args, options) {
 	if (typeof options.cwd !== "string") throw new Error(`\`options.cwd\`: string expected for ${command} ${stringify(args)} ${stringify(options)}`)
@@ -167,7 +145,7 @@ async function createNodeModules(path) {
 	await copyFile(ospecBinPath, join(ospecBinDir, "ospec"))
 
 	await mkdir(dotBinPath)
-	await finalizeBinaryInstall(dotBinPath)
+	await linkOrShim(join(ospecBinDir, "ospec"), join(dotBinPath, "ospec"))
 }
 
 function expandPaths(o, result, prefix = "") {

@@ -72,7 +72,7 @@ function execFile(command, args, options) {
 	})
 }
 
-function removeWarrnings(stderr) {
+function removeWarnings(stderr) {
 	return stderr.split("\n").filter((x) => !x.includes("ExperimentalWarning") && !x.includes("npm WARN lifecycle")).join("\n")
 }
 function removeYarnExtraOutput(stdout) {
@@ -182,7 +182,7 @@ function runningIn({scenario, files}, suite) {
 					await execFile("node", [snrPath], {cwd}).then(
 						({code, stdout, stderr}) => {
 							stdout = stdout.replace(/\r?\n$/, "")
-							stderr = removeWarrnings(stderr)
+							stderr = removeWarnings(stderr)
 							o({code}).deepEquals({code: 0})(snrPath)
 							o({stdout}).deepEquals({stdout: `${snrPath} ran`})(snrPath)
 							o({stderr}).deepEquals({stderr: ""})(snrPath)
@@ -258,7 +258,7 @@ o.spec("cli", function() {
 		if (command !== "node") o("which", function() {
 			o.timeout(10000)
 			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
@@ -269,7 +269,7 @@ o.spec("cli", function() {
 		o("default", function() {
 			o.timeout(10000)
 			return execFile(command, args("default"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -296,7 +296,7 @@ o.spec("cli", function() {
 		o("explicit-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("explicit-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -317,7 +317,7 @@ o.spec("cli", function() {
 		o("explicit-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("explicit-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -340,7 +340,7 @@ o.spec("cli", function() {
 		o("explicit-glob", function() {
 			o.timeout(10000)
 			return execFile(command, args("explicit-glob"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -363,7 +363,7 @@ o.spec("cli", function() {
 		o("preload-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -391,7 +391,7 @@ o.spec("cli", function() {
 		o("preload-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -420,7 +420,7 @@ o.spec("cli", function() {
 		o("require-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("require-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -448,7 +448,7 @@ o.spec("cli", function() {
 		o("require-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("require-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -477,7 +477,7 @@ o.spec("cli", function() {
 		o("ignore-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("ignore-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -502,7 +502,7 @@ o.spec("cli", function() {
 		o("ignore-one-glob", function() {
 			o.timeout(10000)
 			return execFile(command, args("ignore-one-glob"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -525,7 +525,7 @@ o.spec("cli", function() {
 		o("ignore-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("ignore-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
@@ -572,7 +572,7 @@ o.spec("cli", function() {
 		if (command !== "node") o("which", function() {
 			o.timeout(10000)
 			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
@@ -583,7 +583,7 @@ o.spec("cli", function() {
 		o("default", function() {
 			o.timeout(10000)
 			return execFile(command, args("default"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 1})
@@ -617,7 +617,7 @@ o.spec("cli", function() {
 		o("preload-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 1})
@@ -641,7 +641,7 @@ o.spec("cli", function() {
 		o("preload-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 1})
@@ -679,7 +679,7 @@ o.spec("cli", function() {
 		if (command !== "node") o("which", function() {
 			o.timeout(10000)
 			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
@@ -690,7 +690,7 @@ o.spec("cli", function() {
 		o("metadata", function() {
 			o.timeout(10000)
 			return execFile(command, args("metadata"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})

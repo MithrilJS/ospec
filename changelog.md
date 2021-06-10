@@ -18,7 +18,7 @@ Change log
 
 ### Upcoming...
 
-nothing yet
+- Support running in ESM mode of nodejs. 
 
 ### 4.1.1
 _2020-04-07_

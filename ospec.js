@@ -37,6 +37,14 @@ else window.o = m()
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
 	var rootSpec = new Spec()
 	var subjects = []
+	var inspect
+	var inspectP
+
+	if (hasProcess) {
+		inspectP = import("util").then(function (util) {
+			inspect = util.inspect
+		})
+	}
 
 	// stack-managed globals
 	var globalBail
@@ -272,7 +280,7 @@ else window.o = m()
 		// always async for consistent external behavior
 		// otherwise, an async test would release Zalgo
 		// https://blog.izs.me/2013/08/designing-apis-for-asynchrony
-		nextTickish(function () {
+		Promise.resolve(inspectP).then(function () {
 			runSpec(hasSuiteName ? parent : rootSpec, [], [], finalize, 200 /*default timeout delay*/)
 		})
 
@@ -588,7 +596,7 @@ else window.o = m()
 	}
 
 	function serialize(value) {
-		if (hasProcess) return require("util").inspect(value) // eslint-disable-line global-require
+		if (inspect) return inspect(value) // eslint-disable-line global-require
 		if (value === null || (typeof value === "object" && !(value instanceof Array)) || typeof value === "number") return String(value)
 		else if (typeof value === "function") return value.name || "<anonymous function>"
 		try {return JSON.stringify(value)} catch (e) {return String(value)}

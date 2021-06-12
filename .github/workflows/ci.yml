@@ -1,0 +1,30 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    name: Node.js ${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        node_version:
+          # - 12
+          - 14
+        architecture:
+          - x64
+    steps:
+    # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token
+    - uses: actions/checkout@v2
+
+    - name: Use Node.js ${{ matrix.node }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node }}
+
+    - run: npm ci
+    - run: npm run test

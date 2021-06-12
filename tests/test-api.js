@@ -1008,6 +1008,10 @@ o.spec("no output", function() {
 				})
 			})
 			o.spec("o.specTimeout", function() {
+				var shortDelay = 10
+				var middleDelay = 50
+				var longDelay = 200
+
 				o("throws when called inside of test definitions", function(done) {
 					var oo = lib.new()
 
@@ -1034,7 +1038,7 @@ o.spec("no output", function() {
 					var oo = lib.new()
 					var t
 
-					oo.specTimeout(10)
+					oo.specTimeout(shortDelay)
 					oo.beforeEach(function () {
 						t = new Date
 					})
@@ -1065,18 +1069,20 @@ o.spec("no output", function() {
 					var oo = lib.new()
 					var t
 
-					oo.specTimeout(50)
+
+					oo.specTimeout(middleDelay)
 					oo.beforeEach(function () {
 						t = new Date
 					})
 					oo.afterEach(function () {
 						var diff = new Date - t
-						o(diff >= 50).equals(true)
-						o(diff < 80).equals(true)
+						o(diff >= middleDelay).equals(true)
+						if (diff >= longDelay) LOG("too long", diff)
+						o(diff < longDelay).equals(true)
 					})
 
 					oo.spec("nested 1", function () {
-						oo.specTimeout(80)
+						oo.specTimeout(longDelay)
 					})
 
 					oo("", function() {
@@ -1110,7 +1116,7 @@ o.spec("no output", function() {
 				o("nested suites inherit the specTimeout", function(done) {
 					var oo = lib.new()
 
-					oo.specTimeout(50)
+					oo.specTimeout(middleDelay)
 					oo.spec("nested", function () {
 						oo.spec("deeply", function() {
 							var t
@@ -1120,8 +1126,8 @@ o.spec("no output", function() {
 							})
 							oo.afterEach(function () {
 								var diff = new Date - t
-								o(diff >= 50).equals(true)
-								o(diff < 80).equals(true)
+								o(diff >= middleDelay).equals(true)
+								o(diff < longDelay).equals(true)
 							})
 
 							oo("", function() {

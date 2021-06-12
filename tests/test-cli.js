@@ -37,14 +37,17 @@ const moduleKinds = supportsESM
 const commands = ["node", "npm", "yarn"].filter((launcher) => {
 	try {
 		chp.execFileSync(launcher, ["-v"])
+		return true
 		// Avoid running with bare Node for now from Windows
 		// TODO: better abstract command running to
 		// handle this scenario
-		return !isWindows || launcher !== "node"
+		// return !isWindows || launcher !== "node"
 	} catch(e) {
 		return false
 	}
 })
+
+console.log(commands)
 
 // not sure how that could happen...
 if (commands.length === 0) throw new Error("couldn't find either node, npm nor yarn")

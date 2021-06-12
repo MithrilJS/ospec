@@ -6,17 +6,22 @@ const loadFromDeps = (
 	&& process.argv.length >= 2
 	&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
 )
+const isWindows = process.platform === "win32"
+
 const o = loadFromDeps ? require("ospec") : require("../ospec")
+
 const fs = require("fs")
 const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = fs.promises
 const {join} = require("path")
 const chp = require("child_process")
+const linkOrShim = isWindows ? require("cmd-shim") : symlink
 
 const projectCwd = process.cwd()
 const ospecPkgJsonPath = join(projectCwd, "package.json")
 const ospecLibPath = join(projectCwd, "ospec.js")
 const ospecBinPath = join(projectCwd, "bin/ospec")
 const fixturesDir = join(projectCwd, "./tests/fixtures")
+
 
 const parsed = /^v(\d+)\.(\d+)\./.exec(process.version)
 
@@ -33,43 +38,19 @@ const commands = ["node", "npm", "yarn"].filter((launcher) => {
 	try {
 		chp.execFileSync(launcher, ["-v"])
 		return true
+		// Avoid running with bare Node for now from Windows
+		// TODO: better abstract command running to
+		// handle this scenario
+		// return !isWindows || launcher !== "node"
 	} catch(e) {
 		return false
 	}
 })
 
+console.log(commands)
+
 // not sure how that could happen...
 if (commands.length === 0) throw new Error("couldn't find either node, npm nor yarn")
-
-const isWindows = process.platform === "win32"
-
-const winBashscript = `#!/bin/sh
-basedir=$(dirname "$(echo "$0" | sed -e 's,\\,/,g')")
-
-case \`uname\` in
-    *CYGWIN*) basedir=\`cygpath -w "$basedir"\`;;
-esac
-
-node  "$basedir/../mime/cli.js" "$@"
-ret=$?
-
-exit $ret
-`
-
-const winCmdScript = `
-@SETLOCAL
-@SET PATHEXT=%PATHEXT:;.JS;=;%
-node  "%~dp0\\..\\ospec\\bin\\ospec" %*
-`
-
-const finalizeBinaryInstall = isWindows
-	? async (path) => {
-		await writeFile(join(path, "ospec.cmd"), winCmdScript)
-		await writeFile(join(path, "ospec"), winBashscript)
-	}
-	: async (path) => {
-		await symlink("../ospec/bin/ospec", join(path, "ospec"))
-	}
 
 function execFile(command, args, options) {
 	if (typeof options.cwd !== "string") throw new Error(`\`options.cwd\`: string expected for ${command} ${stringify(args)} ${stringify(options)}`)
@@ -94,7 +75,7 @@ function execFile(command, args, options) {
 	})
 }
 
-function removeWarrnings(stderr) {
+function removeWarnings(stderr) {
 	return stderr.split("\n").filter((x) => !x.includes("ExperimentalWarning") && !x.includes("npm WARN lifecycle")).join("\n")
 }
 function removeYarnExtraOutput(stdout) {
@@ -167,7 +148,7 @@ async function createNodeModules(path) {
 	await copyFile(ospecBinPath, join(ospecBinDir, "ospec"))
 
 	await mkdir(dotBinPath)
-	await finalizeBinaryInstall(dotBinPath)
+	await linkOrShim(join(ospecBinDir, "ospec"), join(dotBinPath, "ospec"))
 }
 
 function expandPaths(o, result, prefix = "") {
@@ -204,7 +185,7 @@ function runningIn({scenario, files}, suite) {
 					await execFile("node", [snrPath], {cwd}).then(
 						({code, stdout, stderr}) => {
 							stdout = stdout.replace(/\r?\n$/, "")
-							stderr = removeWarrnings(stderr)
+							stderr = removeWarnings(stderr)
 							o({code}).deepEquals({code: 0})(snrPath)
 							o({stdout}).deepEquals({stdout: `${snrPath} ran`})(snrPath)
 							o({stderr}).deepEquals({stderr: ""})(snrPath)
@@ -280,7 +261,7 @@ o.spec("cli", function() {
 		if (command !== "node") o("which", function() {
 			o.timeout(10000)
 			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
@@ -291,13 +272,13 @@ o.spec("cli", function() {
 		o("default", function() {
 			o.timeout(10000)
 			return execFile(command, args("default"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -318,13 +299,13 @@ o.spec("cli", function() {
 		o("explicit-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("explicit-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 2 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -339,13 +320,13 @@ o.spec("cli", function() {
 		o("explicit-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("explicit-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -362,13 +343,13 @@ o.spec("cli", function() {
 		o("explicit-glob", function() {
 			o.timeout(10000)
 			return execFile(command, args("explicit-glob"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"explicit/explicit1.js",
@@ -385,13 +366,13 @@ o.spec("cli", function() {
 		o("preload-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -413,13 +394,13 @@ o.spec("cli", function() {
 		o("preload-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -442,13 +423,13 @@ o.spec("cli", function() {
 		o("require-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("require-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -470,13 +451,13 @@ o.spec("cli", function() {
 		o("require-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("require-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"main.js",
@@ -499,13 +480,13 @@ o.spec("cli", function() {
 		o("ignore-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("ignore-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 6 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 6 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -524,13 +505,13 @@ o.spec("cli", function() {
 		o("ignore-one-glob", function() {
 			o.timeout(10000)
 			return execFile(command, args("ignore-one-glob"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 4 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -547,13 +528,13 @@ o.spec("cli", function() {
 		o("ignore-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("ignore-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+				o(/All 2 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
 				const shouldRun = new Set([
 					"tests/main1.js",
@@ -594,7 +575,7 @@ o.spec("cli", function() {
 		if (command !== "node") o("which", function() {
 			o.timeout(10000)
 			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
@@ -605,7 +586,7 @@ o.spec("cli", function() {
 		o("default", function() {
 			o.timeout(10000)
 			return execFile(command, args("default"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 1})
@@ -639,13 +620,13 @@ o.spec("cli", function() {
 		o("preload-one", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 1})
 				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
+				o({assertionReport: /\d+ assertions (?:pass|fail)ed/.test(stdout)})
 					.deepEquals({assertionReport: false})(stdout)
 
 				const shouldRun = new Set([
@@ -663,13 +644,13 @@ o.spec("cli", function() {
 		o("preload-several", function() {
 			o.timeout(10000)
 			return execFile(command, args("preload-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 1})
 				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
+				o({assertionReport: /\d+ assertions (?:pass|fail)ed/.test(stdout)})
 					.deepEquals({assertionReport: false})(stdout)
 
 				const shouldRun = new Set([
@@ -701,7 +682,7 @@ o.spec("cli", function() {
 		if (command !== "node") o("which", function() {
 			o.timeout(10000)
 			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
@@ -712,13 +693,13 @@ o.spec("cli", function() {
 		o("metadata", function() {
 			o.timeout(10000)
 			return execFile(command, args("metadata"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+				stderr = removeWarnings(stderr)
 				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
 
 				o({code}).deepEquals({code: 0})
 				o({stderr}).deepEquals({stderr: ""})
 
-				o({correctNumberPassed: /All 3 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
+				o({correctNumberPassed: /All 3 assertions passed/.test(stdout)})
 					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
 				const files = [
 					"default1.js", "default2.js", "override.js"

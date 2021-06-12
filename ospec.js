@@ -250,7 +250,6 @@ else window.o = m()
 		if (isRunning()) throw new Error("`o.run()` has already been called")
 		results = []
 		stats = {
-			asyncSuccesses: 0,
 			bailCount: 0,
 			onlyCalledAt: onlyCalledAt
 		}
@@ -416,8 +415,6 @@ else window.o = m()
 							+ o.cleanStackTrace(task.error))
 					}
 
-					// temporary, for the "old style count" report
-					if (!threw && task.error != null) {stats.asyncSuccesses++}
 
 					if (!isFinalized) finalize(err, threw, false)
 				}
@@ -717,7 +714,7 @@ else window.o = m()
 	}
 
 	o.report = function (results, stats) {
-		if (stats == null) stats = {bailCount: 0, asyncSuccesses: 0}
+		if (stats == null) stats = {bailCount: 0}
 		var errCount = -stats.bailCount
 		for (var i = 0, r; r = results[i]; i++) {
 			if (!r.pass) {
@@ -739,7 +736,6 @@ else window.o = m()
 		}
 		var pl = results.length === 1 ? "" : "s"
 
-		var oldTotal = " (old style total: " + (results.length + stats.asyncSuccesses) + ")"
 		var total = results.length - stats.bailCount
 		var message = [], log = []
 
@@ -748,12 +744,12 @@ else window.o = m()
 		if (name) message.push(name + ": ")
 
 		if (errCount === 0 && stats.bailCount === 0) {
-			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal, "green"))
+			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed", "green"))
 			log.push(cStyle("green" , true), cStyle(null))
 		} else if (errCount === 0) {
-			message.push((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal)
+			message.push((pl ? "All " : "The ") + total + " assertion" + pl + " passed")
 		} else {
-			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed" + oldTotal, "red2"))
+			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed", "red2"))
 			log.push(cStyle("red" , true), cStyle(null))
 		}
 

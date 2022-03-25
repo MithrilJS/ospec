@@ -32,7 +32,7 @@ function parseArgs(argv) {
 	let name
 	argv.forEach((arg) => {
 		if ((/^--/).test(arg)) {
-			name = arg.substr(2)
+			name = arg.slice(2)
 			if (name === "require") {
 				if (args.require == null) console.warn(
 					"Warning: The --require option has been deprecated, use --preload instead"

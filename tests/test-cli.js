@@ -47,8 +47,6 @@ const commands = ["node", "npm", "yarn"].filter((launcher) => {
 	}
 })
 
-console.log(commands)
-
 // not sure how that could happen...
 if (commands.length === 0) throw new Error("couldn't find either node, npm nor yarn")
 

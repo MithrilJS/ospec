@@ -1077,7 +1077,6 @@ o.spec("no output", function() {
 					oo.afterEach(function () {
 						var diff = new Date - t
 						o(diff >= middleDelay).equals(true)
-						if (diff >= longDelay) LOG("too long", diff)
 						o(diff < longDelay).equals(true)
 					})
 

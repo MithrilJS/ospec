@@ -8,22 +8,28 @@ exports["package.json"] = {
 	}
 }
 
+const isWindows = process.platform === "win32"
+
+const cjsFileName = "__filename"
+const esmFileName = 
+isWindows ? String.raw`import.meta.url.slice(8).replace(/\//g, '\\')`: 
+"import.meta.url.slice(7)"
+
+
+
 const cjsHeader = `
 "use strict"
-console.log(__filename + " ran")
+console.log(${cjsFileName} + " ran")
 
 const o = require("ospec")
 `
 
 const esmHeader = `
 "use strict"
-console.log(import.meta.url.slice(7) + " ran")
+console.log(${esmFileName} + " ran")
 
 import {default as o} from 'ospec'
 `
-
-const cjsFileName = "__filename"
-const esmFileName = "import.meta.url.slice(7)"
 
 const override = `
 o.metadata({file: "foo"})
@@ -43,7 +49,10 @@ o("test", function() {
 })
 `
 
-const file = (header, middle, filename) => `${header}${middle}o.spec(${filename}, function() {
+const file = (header, middle, filename) => `
+${header}
+${middle}
+o.spec(${filename}, function() {
 	${test}
 })`
 

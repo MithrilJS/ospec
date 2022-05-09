@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
-    name: Node.js ${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }}
+    name: Node.js ${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }} with ${{ matrix.shell }}
     strategy:
       matrix:
         os:
@@ -13,18 +13,49 @@ jobs:
           - macos-latest
           - windows-latest
         node_version:
-          # - 12
           - 14
+          - 16
+          - 18
         architecture:
           - x64
+        shell :
+          - bash
+        include:
+          - os: windows-latest
+            shell: cmd
+            node_version: 14
+          - os: windows-latest
+            shell: powershell
+            node_version: 14
+          - os: windows-latest
+            shell: pwsh
+            node_version: 14
+          - os: windows-latest
+            shell: cmd
+            node_version: 16
+          - os: windows-latest
+            shell: powershell
+            node_version: 16
+          - os: windows-latest
+            shell: pwsh
+            node_version: 16
+          - os: windows-latest
+            shell: cmd
+            node_version: 18
+          - os: windows-latest
+            shell: powershell
+            node_version: 18
+          - os: windows-latest
+            shell: pwsh
+            node_version: 18
     steps:
     # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token
     - uses: actions/checkout@v2
 
-    - name: Use Node.js ${{ matrix.node }}
+    - name: Use Node.js ${{ matrix.node_version }}
       uses: actions/setup-node@v2
       with:
-        node-version: ${{ matrix.node }}
-
+        node-version: ${{ matrix.node_version }}
     - run: npm ci
+    - run: corepack enable
     - run: npm run test

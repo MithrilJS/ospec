@@ -12,11 +12,11 @@ if (typeof require !== "undefined") {
 	var loadFromDeps = (
 		typeof process !== "undefined"
 		&& process.argv.length >= 2
-		&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
+		&& process.argv[1].match(/ospec-stable/)
 	)
 	/* eslint-disable global-require */
 	o = lib = require("../ospec")
-	if (loadFromDeps) o = require("ospec")
+	if (loadFromDeps) o = require("ospec-stable")
 	/* eslint-enable global-require */
 } else {
 	o = lib = window.o

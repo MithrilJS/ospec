@@ -1,10 +1,13 @@
 
+
 "use strict"
 console.log(__filename + " ran")
 
 const o = require("ospec")
 
+
 o.metadata({file: "foo"})
+
 o.spec(__filename, function() {
 	
 o("test", function() {

@@ -16,9 +16,11 @@
 Change log
 ======
 
-### Upcoming...
+### 4.1.2
 
-nothing yet
+#### Bug fixes
+_2022-05-17_
+- Properly handle ES6 modules in Widows ([#30](https://github.com/MithrilJS/ospec/pull/30), closes (#35)[https://github.com/MithrilJS/ospec/issues/35]
 
 ### 4.1.1
 _2020-04-07_

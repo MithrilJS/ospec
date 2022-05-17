@@ -1,4 +1,4 @@
-/* eslint-disable wrap-regex */
+/* eslint-disable wrap-regex, no-process-env*/
 "use strict"
 
 const loadFromDeps = (
@@ -11,10 +11,11 @@ const isWindows = process.platform === "win32"
 
 const o = loadFromDeps ? require("ospec-stable") : require("../ospec")
 
-const {copyFile, lstat, mkdir, readFile, readdir, rmdir, symlink, unlink, writeFile} = require("fs/promises")
-const {join} = require("path")
+const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = require("node:fs/promises")
+const {join} = require("node:path")
 const {performance} = require("node:perf_hooks")
-const {spawnSync, spawn} = require("child_process")
+const {spawnSync, spawn} = require("node:child_process")
+
 const linkOrShim = isWindows ? require("cmd-shim") : symlink
 
 const projectCwd = process.cwd()
@@ -27,11 +28,8 @@ const parsed = /^v(\d+)\.(\d+)\./.exec(process.version)
 
 const supportsESM = parsed && Number(parsed[1]) > 13 || Number(parsed[1]) === 13 && Number(parsed[2]) >= 2
 
-const timoutDelay = 20000
+const timeoutDelay = 20000
 
-function stringify(arg) {
-	return JSON.stringify(arg, null, 2)
-}
 const moduleKinds = supportsESM
 	? [
 		"cjs",
@@ -57,19 +55,19 @@ function childPromise(child) {
 	const err = []
 	const out = []
 	if (child.stdout) {
-		child.stdout.on('data', d=> out.push(d.toString()))
-		child.stderr.on('data', d=> err.push(d.toString()))	
+		child.stdout.on("data", (d) => out.push(d.toString()))
+		child.stderr.on("data", (d) => err.push(d.toString()))
 	}
 	return Object.assign(new Promise(function (fulfill, _reject) {
 		let code, signal
 		const handler = (_code, _signal) => {
-			code = _code, signal = signal
+			code = _code, signal = _signal
 			const result = {
 				code,
 				err: null,
 				signal,
-				stderr: err.join(''),
-				stdout: out.join(''),
+				stderr: err.join(""),
+				stdout: out.join(""),
 			}
 
 			if (code === 0 && signal == null) fulfill(result)
@@ -80,17 +78,17 @@ function childPromise(child) {
 
 		child.on("close", handler)
 		child.on("exit", handler)
-		child.on("error", error => {
+		child.on("error", (error) => {
 			_reject(Object.assign((error), {
 				code,
 				err: error,
 				signal,
-				stderr: err.join(''),
-				stdout: out.join(''),
+				stderr: err.join(""),
+				stdout: out.join(""),
 			}))
-			if (child.exitCode == null) child.kill('SIGTERM')
-			setTimeout(()=>{
-				if (child.exitCode == null) child.kill('SIGKILL')
+			if (child.exitCode == null) child.kill("SIGTERM")
+			setTimeout(() => {
+				if (child.exitCode == null) child.kill("SIGKILL")
 			}, 200)
 		})
 	}), {process: child})
@@ -108,12 +106,11 @@ function childPromise(child) {
 // }
 // On rejection, the Error is augmented with the same fields
 
-const readFromCmd = (cmd, options) => (...params) => {
-	return childPromise(spawn(cmd, params.filter(p => p !== ""), {
+const readFromCmd = (cmd, options) => (...params) => childPromise(spawn(cmd, params.filter((p) => p !== ""), {
 	env: process.env,
 	cwd: process.cwd(),
 	...options
-}))}
+}))
 
 // set PATH=%PATH%;.\node_modules\.bin
 // cmd /c "ospec.cmd foo.js"
@@ -126,7 +123,11 @@ function removeWarnings(stderr) {
 }
 function removeExtraOutputFor(command, stdout) {
 	if (command === "yarn") return stdout.split("\n").filter((line) => !/^Done in [\d\.s]+$/.test(line) && !line.includes("yarnpkg")).join("\n")
-	if (command === "pnpm") return stdout.replace(/ERROR  Command failed with exit code \d+\./, '')
+	if (command === "pnpm") return stdout.replace(
+		// eslint-disable-next-line no-irregular-whitespace
+		/ERROR  Command failed with exit code \d+\./,
+		""
+	)
 	return stdout
 }
 function checkIfFilesExist(cwd, files) {
@@ -207,11 +208,11 @@ function expandPaths(o, result, prefix = "") {
 	return result
 }
 
-const pathVarName = Object.keys(process.env).filter(k => /^path$/i.test(k))[0]
+const pathVarName = Object.keys(process.env).filter((k) => /^path$/i.test(k))[0]
 
 const env = {
 	...process.env,
-	[pathVarName]: (isWindows ? ".\\node_modules\\.bin;": "./node_modules/.bin:") + process.env[pathVarName]       
+	[pathVarName]: (isWindows ? ".\\node_modules\\.bin;": "./node_modules/.bin:") + process.env[pathVarName]
 }
 
 function runningIn({scenario, files}, suite) {
@@ -250,21 +251,19 @@ function runningIn({scenario, files}, suite) {
 						const {scripts} = config["package.json"]
 
 						const run = ["npm", "pnpm", "yarn"].includes(command)
-						? readFromCmd(command, {cwd, shell: true}).bind(null, "run")
-						: (
-							scenario => readFromCmd(command, {cwd, env, shell: true})(scripts[scenario].slice(6))
-						)
+							? readFromCmd(command, {cwd, shell: true}).bind(null, "run")
+							: (
+								(scenario) => readFromCmd(command, {cwd, env, shell: true})(scripts[scenario].slice(6))
+							)
 
 						let before
-						o.before(()=>{
+						o.before(() => {
 							console.log(`[ ${scenario} + ${mod} + ${command} ]`)
 							before = performance.now()
 						})
-						o.after(()=>console.log(`...took ${Math.round(performance.now()-before)} ms`))
+						o.after(() => console.log(`...took ${Math.round(performance.now()-before)} ms`))
 						
-						suite({allFiles, command, cwd, run: (arg) => {
-							return run(arg)
-						}})
+						suite({allFiles, command, cwd, run: (arg) => run(arg)})
 					})
 				})
 			})

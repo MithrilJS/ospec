@@ -11,10 +11,9 @@ exports["package.json"] = {
 const isWindows = process.platform === "win32"
 
 const cjsFileName = "__filename"
-const esmFileName = 
-isWindows ? String.raw`import.meta.url.slice(8).replace(/\//g, '\\')`: 
-"import.meta.url.slice(7)"
-
+const esmFileName =
+isWindows ? String.raw`import.meta.url.slice(8).replace(/\//g, '\\')`:
+	"import.meta.url.slice(7)"
 
 
 const cjsHeader = `

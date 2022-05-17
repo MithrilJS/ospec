@@ -6,12 +6,12 @@ exports["package.json"] = {
 		"default": "ospec",
 		"explicit-one": "ospec ./explicit/explicit1.js",
 		"explicit-several": "ospec ./explicit/explicit1.js ./explicit/explicit2.js",
-		"explicit-glob": `ospec "explicit/*.js"`,
+		"explicit-glob": "ospec \"explicit/*.js\"",
 		// TODO investigate why --ignore is so capricious
 		// `tests/test2.js` works, but `./tests/test2.js` doesn't.
 		"ignore-one": "ospec --ignore tests/main2.js",
-		"ignore-one-glob": `ospec --ignore "very/**/*.js"`,
-		"ignore-several": `ospec --ignore "very/**" --ignore tests/main2.js`,
+		"ignore-one-glob": "ospec --ignore \"very/**/*.js\"",
+		"ignore-several": "ospec --ignore \"very/**\" --ignore tests/main2.js",
 		"preload-one": "ospec --preload ./main.js",
 		"preload-several": "ospec --preload ./main.js --preload ./other.js",
 		"require-one": "ospec --require ./main.js",

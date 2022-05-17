@@ -70,10 +70,13 @@ jobs:
           - windows-latest
         node_version:
           - 14
-          - 16
-          - 18
         architecture:
           - x64
+        include:
+          - os: ubuntu-latest
+            node_version: 16
+          - os: ubuntu-latest
+            node_version: 18
 
     steps:
     # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token

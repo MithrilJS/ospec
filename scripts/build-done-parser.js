@@ -1,6 +1,6 @@
 "use strict"
 
-import { sequence, either, suffix, capture } from "compose-regexp"
+const { sequence, either, suffix, capture } = require("compose-regexp")
 const zeroOrMore = suffix("*")
 const maybe = suffix("?")
 

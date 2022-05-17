@@ -3,9 +3,10 @@
 // TODO: properly document this
 
 const o = require("ospec")
-const {report} = o
-const {writeFileSync, mkdirSync} = require("fs")
-const {join} = require("path")
+const {report} = 0
+
+const {writeFileSync, mkdirSync} = require("node:fs")
+const {join} = require("node:path")
 
 console.log("Logging...")
 mkdirSync("./logs", {recursive: true})

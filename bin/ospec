@@ -12,7 +12,7 @@ const loaderDetected = new Promise((fulfill, reject) => {
 		// at run time...
 		// eslint-disable-next-line no-eval
 		eval(`
-		import('./non-existant-file').catch((e)=>{
+		import('file:./non-existent-file').catch((e)=>{
 			if (e.message.includes('Not supported')) reject()
 			else fulfill()
 		})`)
@@ -21,7 +21,7 @@ const loaderDetected = new Promise((fulfill, reject) => {
 	}
 }).then(
 	// eslint-disable-next-line no-eval, no-unused-vars
-	() => (x) => eval("import(x)"),
+	() => (x) => eval("import('file:' + x)"),
 	// eslint-disable-next-line global-require
 	() => async (x) => require(x)
 )

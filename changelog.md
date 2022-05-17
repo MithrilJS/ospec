@@ -16,9 +16,21 @@
 Change log
 ======
 
-### Upcoming...
+### Upcoming
 
-nothing yet
+- Work around a Rollup limitation, fixes [#25](https://github.com/MithrilJS/ospec/issues/25)
+
+### 4.1.3
+
+#### Bug fixes
+_2022-05-18_
+- Fix post-install crash introduced in v4.1.2
+
+### 4.1.2 
+
+#### Bug fixes
+_2022-05-17_
+- Properly handle ES6 modules in Widows ([#30](https://github.com/MithrilJS/ospec/pull/30), closes (#35)[https://github.com/MithrilJS/ospec/issues/35]
 
 ### 4.1.1
 _2020-04-07_

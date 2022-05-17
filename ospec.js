@@ -32,6 +32,7 @@ else window.o = m()
 	// # Setup
 	// const
 	var hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
+
 	var hasSuiteName = arguments.length !== 0
 	var only = []
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
@@ -250,7 +251,6 @@ else window.o = m()
 		if (isRunning()) throw new Error("`o.run()` has already been called")
 		results = []
 		stats = {
-			asyncSuccesses: 0,
 			bailCount: 0,
 			onlyCalledAt: onlyCalledAt
 		}
@@ -416,8 +416,6 @@ else window.o = m()
 							+ o.cleanStackTrace(task.error))
 					}
 
-					// temporary, for the "old style count" report
-					if (!threw && task.error != null) {stats.asyncSuccesses++}
 
 					if (!isFinalized) finalize(err, threw, false)
 				}
@@ -586,13 +584,16 @@ else window.o = m()
 		result.message = message
 		result.error = error != null ? error : ensureStackTrace(new Error)
 	}
+	// workaround for Rollup
+	// direct `require` calles are hoisted at the top of the file
+	// and ran unconditionally.
 
-	function serialize(value) {
-		if (hasProcess) return require("util").inspect(value) // eslint-disable-line global-require
+	var serialize = function serialize(value) {
 		if (value === null || (typeof value === "object" && !(value instanceof Array)) || typeof value === "number") return String(value)
 		else if (typeof value === "function") return value.name || "<anonymous function>"
 		try {return JSON.stringify(value)} catch (e) {return String(value)}
 	}
+	try {serialize = require("util").inspect} catch(e) {/* deliberately empty */} // eslint-disable-line global-require
 
 	// o.spy is functionally equivalent to this:
 	// the extra complexity comes from compatibility issues
@@ -717,7 +718,7 @@ else window.o = m()
 	}
 
 	o.report = function (results, stats) {
-		if (stats == null) stats = {bailCount: 0, asyncSuccesses: 0}
+		if (stats == null) stats = {bailCount: 0}
 		var errCount = -stats.bailCount
 		for (var i = 0, r; r = results[i]; i++) {
 			if (!r.pass) {
@@ -739,7 +740,6 @@ else window.o = m()
 		}
 		var pl = results.length === 1 ? "" : "s"
 
-		var oldTotal = " (old style total: " + (results.length + stats.asyncSuccesses) + ")"
 		var total = results.length - stats.bailCount
 		var message = [], log = []
 
@@ -748,12 +748,12 @@ else window.o = m()
 		if (name) message.push(name + ": ")
 
 		if (errCount === 0 && stats.bailCount === 0) {
-			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal, "green"))
+			message.push(highlight((pl ? "All " : "The ") + total + " assertion" + pl + " passed", "green"))
 			log.push(cStyle("green" , true), cStyle(null))
 		} else if (errCount === 0) {
-			message.push((pl ? "All " : "The ") + total + " assertion" + pl + " passed" + oldTotal)
+			message.push((pl ? "All " : "The ") + total + " assertion" + pl + " passed")
 		} else {
-			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed" + oldTotal, "red2"))
+			message.push(highlight(errCount + " out of " + total + " assertion" + pl + " failed", "red2"))
 			log.push(cStyle("red" , true), cStyle(null))
 		}
 

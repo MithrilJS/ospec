@@ -1,16 +1,22 @@
-/* eslint-disable wrap-regex */
+/* eslint-disable wrap-regex, no-process-env*/
 "use strict"
 
 const loadFromDeps = (
 	typeof process !== "undefined"
 	&& process.argv.length >= 2
-	&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
+	&& process.argv[1].match(/ospec-stable/)
 )
-const o = loadFromDeps ? require("ospec") : require("../ospec")
-const fs = require("fs")
-const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = fs.promises
-const {join} = require("path")
-const chp = require("child_process")
+
+const isWindows = process.platform === "win32"
+
+const o = loadFromDeps ? require("ospec-stable") : require("../ospec")
+
+const {copyFile, lstat, mkdir, readdir, rmdir, symlink, unlink, writeFile} = require("node:fs/promises")
+const {join} = require("node:path")
+const {performance} = require("node:perf_hooks")
+const {spawnSync, spawn} = require("node:child_process")
+
+const linkOrShim = isWindows ? require("cmd-shim") : symlink
 
 const projectCwd = process.cwd()
 const ospecPkgJsonPath = join(projectCwd, "package.json")
@@ -22,83 +28,107 @@ const parsed = /^v(\d+)\.(\d+)\./.exec(process.version)
 
 const supportsESM = parsed && Number(parsed[1]) > 13 || Number(parsed[1]) === 13 && Number(parsed[2]) >= 2
 
+const timeoutDelay = 20000
 
-function stringify(arg) {
-	return JSON.stringify(arg, null, 2)
-}
 const moduleKinds = supportsESM
-	? ["cjs", "esm"]
+	? [
+		"cjs",
+		"esm",
+	]
 	: (console.log("Skipping ESM tests due to lack of platform support"), ["cjs"])
-const commands = ["node", "npm", "yarn"].filter((launcher) => {
+const commands = [
+	"npm",
+	"pnpm",
+	"yarn"
+].filter((launcher) => {
 	try {
-		chp.execFileSync(launcher, ["-v"])
-		return true
+		return spawnSync(launcher, ["-v"], {shell: true}).status === 0
 	} catch(e) {
 		return false
 	}
 })
+commands.unshift("ospec")
 
-// not sure how that could happen...
-if (commands.length === 0) throw new Error("couldn't find either node, npm nor yarn")
+console.log(`Testing (${moduleKinds.join(" + ")}) x (${commands.join(" + ")})`)
 
-const isWindows = process.platform === "win32"
-
-const winBashscript = `#!/bin/sh
-basedir=$(dirname "$(echo "$0" | sed -e 's,\\,/,g')")
-
-case \`uname\` in
-    *CYGWIN*) basedir=\`cygpath -w "$basedir"\`;;
-esac
-
-node  "$basedir/../mime/cli.js" "$@"
-ret=$?
-
-exit $ret
-`
-
-const winCmdScript = `
-@SETLOCAL
-@SET PATHEXT=%PATHEXT:;.JS;=;%
-node  "%~dp0\\..\\ospec\\bin\\ospec" %*
-`
-
-const finalizeBinaryInstall = isWindows
-	? async (path) => {
-		await writeFile(join(path, "ospec.cmd"), winCmdScript)
-		await writeFile(join(path, "ospec"), winBashscript)
+function childPromise(child) {
+	const err = []
+	const out = []
+	if (child.stdout) {
+		child.stdout.on("data", (d) => out.push(d.toString()))
+		child.stderr.on("data", (d) => err.push(d.toString()))
 	}
-	: async (path) => {
-		await symlink("../ospec/bin/ospec", join(path, "ospec"))
-	}
-
-function execFile(command, args, options) {
-	if (typeof options.cwd !== "string") throw new Error(`\`options.cwd\`: string expected for ${command} ${stringify(args)} ${stringify(options)}`)
-	return new Promise((fulfill, reject) => {
-		chp.execFile(command, args, {
-			shell: true,
-			...options,
-			timeout: 5000,
-			killSignal: "SIGKILL",
-			windowsHide: true
-		}, (error, stdout, stderr) => {
-			if (error != null && typeof error.code !== "number") {
-				reject(error)
-			} else {
-				fulfill({
-					code: error == null ? 0 : error.code,
-					stdout,
-					stderr
-				})
+	return Object.assign(new Promise(function (fulfill, _reject) {
+		let code, signal
+		const handler = (_code, _signal) => {
+			code = _code, signal = _signal
+			const result = {
+				code,
+				err: null,
+				signal,
+				stderr: err.join(""),
+				stdout: out.join(""),
 			}
+
+			if (code === 0 && signal == null) fulfill(result)
+			else {
+				_reject(Object.assign(new Error("Problem in child process"), result))
+			}
+		}
+
+		child.on("close", handler)
+		child.on("exit", handler)
+		child.on("error", (error) => {
+			_reject(Object.assign((error), {
+				code,
+				err: error,
+				signal,
+				stderr: err.join(""),
+				stdout: out.join(""),
+			}))
+			if (child.exitCode == null) child.kill("SIGTERM")
+			setTimeout(() => {
+				if (child.exitCode == null) child.kill("SIGKILL")
+			}, 200)
 		})
-	})
+	}), {process: child})
 }
 
-function removeWarrnings(stderr) {
+// This returns a Promise augmented with a `process` field for raw
+// access to the child process
+// The promise resolves to an object with this structure
+// {
+// 	code? // exit code, if any
+// 	signal? // signal recieved, if any
+// 	stdout: string,
+// 	stderr: string,
+//  error?: the error caught, if any
+// }
+// On rejection, the Error is augmented with the same fields
+
+const readFromCmd = (cmd, options) => (...params) => childPromise(spawn(cmd, params.filter((p) => p !== ""), {
+	env: process.env,
+	cwd: process.cwd(),
+	...options
+}))
+
+// set PATH=%PATH%;.\node_modules\.bin
+// cmd /c "ospec.cmd foo.js"
+
+// $Env:PATH += ".\node_modules\.bin"
+// ospec foo.js
+
+function removeWarnings(stderr) {
 	return stderr.split("\n").filter((x) => !x.includes("ExperimentalWarning") && !x.includes("npm WARN lifecycle")).join("\n")
 }
-function removeYarnExtraOutput(stdout) {
-	return stdout.split("\n").filter((line) => !/^Done in [\d\.s]+$/.test(line) && !line.includes("yarnpkg")).join("\n")
+function removeExtraOutputFor(command, stdout) {
+	if (command === "yarn") return stdout.split("\n").filter((line) => !/^Done in [\d\.s]+$/.test(line) && !line.includes("yarnpkg")).join("\n")
+	if (command === "pnpm") return stdout.replace(
+		// eslint-disable-next-line no-irregular-whitespace
+		/ERROR  Command failed with exit code \d+\./,
+		""
+	)
+	return stdout
 }
 function checkIfFilesExist(cwd, files) {
 	return Promise.all(files.map((list) => {
@@ -116,10 +146,8 @@ async function remove(path) {
 		const stats = await lstat(path)
 		if (stats.isDirectory()) {
 			await Promise.all((await readdir(path)).map((child) => remove(join(path, child))))
-			// console.log("removing", {path})
 			return rmdir(path)
 		} else {
-			// console.log("removing", {path})
 			return unlink(path)
 		}
 	// eslint-disable-next-line no-empty
@@ -167,8 +195,9 @@ async function createNodeModules(path) {
 	await copyFile(ospecBinPath, join(ospecBinDir, "ospec"))
 
 	await mkdir(dotBinPath)
-	await finalizeBinaryInstall(dotBinPath)
+	await linkOrShim(join(ospecBinDir, "ospec"), join(dotBinPath, "ospec"))
 }
+
 
 function expandPaths(o, result, prefix = "") {
 	for (const k in o) {
@@ -177,6 +206,13 @@ function expandPaths(o, result, prefix = "") {
 		else expandPaths(o[k], result, path)
 	}
 	return result
+}
+
+const pathVarName = Object.keys(process.env).filter((k) => /^path$/i.test(k))[0]
+
+const env = {
+	...process.env,
+	[pathVarName]: (isWindows ? ".\\node_modules\\.bin;": "./node_modules/.bin:") + process.env[pathVarName]
 }
 
 function runningIn({scenario, files}, suite) {
@@ -189,9 +225,8 @@ function runningIn({scenario, files}, suite) {
 		moduleKinds.forEach((mod) => {
 			o.spec(mod, () => {
 				const cwd = join(scenarioPath, mod)
-
 				o.before(async () => {
-					o.timeout(10000)
+					o.timeout(timeoutDelay)
 					await remove(cwd)
 					await createDir(config.js, cwd, mod)
 					await createPackageJson(config["package.json"], cwd, mod)
@@ -201,10 +236,10 @@ function runningIn({scenario, files}, suite) {
 					const snrPath = join(
 						cwd, "node_modules", "dummy-module-with-tests-cjs", "tests", "should-not-run.js"
 					)
-					await execFile("node", [snrPath], {cwd}).then(
+					await readFromCmd("node", {cwd})(snrPath).then(
 						({code, stdout, stderr}) => {
 							stdout = stdout.replace(/\r?\n$/, "")
-							stderr = removeWarrnings(stderr)
+							stderr = removeWarnings(stderr)
 							o({code}).deepEquals({code: 0})(snrPath)
 							o({stdout}).deepEquals({stdout: `${snrPath} ran`})(snrPath)
 							o({stderr}).deepEquals({stderr: ""})(snrPath)
@@ -213,12 +248,22 @@ function runningIn({scenario, files}, suite) {
 				})
 				commands.forEach((command) => {
 					o.spec(command, () => {
-						const args = command === "node"
-							? (script) => ["./node_modules/.bin/ospec", config["package.json"].scripts[script].slice(6)]
-							: (script) => ["run", script]
+						const {scripts} = config["package.json"]
 
+						const run = ["npm", "pnpm", "yarn"].includes(command)
+							? readFromCmd(command, {cwd, shell: true}).bind(null, "run")
+							: (
+								(scenario) => readFromCmd(command, {cwd, env, shell: true})(scripts[scenario].slice(6))
+							)
 
-						suite({cwd, command, args, allFiles})
+						let before
+						o.before(() => {
+							console.log(`[ ${scenario} + ${mod} + ${command} ]`)
+							before = performance.now()
+						})
+						o.after(() => console.log(`...took ${Math.round(performance.now()-before)} ms`))
+						
+						suite({allFiles, command, cwd, run: (arg) => run(arg)})
 					})
 				})
 			})
@@ -276,294 +321,342 @@ o.spec("cli", function() {
 			"very/deep/tests/deep1.js",
 			"very/deep/tests/deeper/deep2.js"
 		]
-	}, ({cwd, command, args, allFiles}) => {
-		if (command !== "node") o("which", function() {
-			o.timeout(10000)
-			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+	}, ({cwd, command, run, allFiles}) => {
+		if (/^(?:npm|pnpm|yarn)$/.test(command)) o("which", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("which"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
-			})
+			o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
 		})
-		o("default", function() {
-			o.timeout(10000)
-			return execFile(command, args("default"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("default", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("default"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
+			const shouldRun = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("explicit-one", function() {
-			o.timeout(10000)
-			return execFile(command, args("explicit-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("explicit-one", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("explicit-one"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 2 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"explicit/explicit1.js",
-				])
-				const shouldTest = new Set([
-					"explicit/explicit1.js",
-				])
+			const shouldRun = new Set([
+				"explicit/explicit1.js",
+			])
+			const shouldTest = new Set([
+				"explicit/explicit1.js",
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("explicit-several", function() {
-			o.timeout(10000)
-			return execFile(command, args("explicit-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("explicit-several", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("explicit-several"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 4 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"explicit/explicit1.js",
-					"explicit/explicit2.js"
-				])
-				const shouldTest = new Set([
-					"explicit/explicit1.js",
-					"explicit/explicit2.js"
-				])
+			const shouldRun = new Set([
+				"explicit/explicit1.js",
+				"explicit/explicit2.js"
+			])
+			const shouldTest = new Set([
+				"explicit/explicit1.js",
+				"explicit/explicit2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("explicit-glob", function() {
-			o.timeout(10000)
-			return execFile(command, args("explicit-glob"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("explicit-glob", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("explicit-glob"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 4 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"explicit/explicit1.js",
-					"explicit/explicit2.js"
-				])
-				const shouldTest = new Set([
-					"explicit/explicit1.js",
-					"explicit/explicit2.js"
-				])
+			const shouldRun = new Set([
+				"explicit/explicit1.js",
+				"explicit/explicit2.js"
+			])
+			const shouldTest = new Set([
+				"explicit/explicit1.js",
+				"explicit/explicit2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("preload-one", function() {
-			o.timeout(10000)
-			return execFile(command, args("preload-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("preload-one", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("preload-one"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"main.js",
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
+			const shouldRun = new Set([
+				"main.js",
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("preload-several", function() {
-			o.timeout(10000)
-			return execFile(command, args("preload-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("preload-several", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("preload-several"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"main.js",
-					"other.js",
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
+			const shouldRun = new Set([
+				"main.js",
+				"other.js",
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("require-one", function() {
-			o.timeout(10000)
-			return execFile(command, args("require-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("require-one", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("require-one"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"main.js",
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
+			const shouldRun = new Set([
+				"main.js",
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("require-several", function() {
-			o.timeout(10000)
-			return execFile(command, args("require-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("require-several", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("require-several"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: "Warning: The --require option has been deprecated, use --preload instead\n"})
 
-				o(/All 8 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 8 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"main.js",
-					"other.js",
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
+			const shouldRun = new Set([
+				"main.js",
+				"other.js",
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("ignore-one", function() {
-			o.timeout(10000)
-			return execFile(command, args("ignore-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("ignore-one", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("ignore-one"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 6 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 6 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"tests/main1.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
+			const shouldRun = new Set([
+				"tests/main1.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("ignore-one-glob", function() {
-			o.timeout(10000)
-			return execFile(command, args("ignore-one-glob"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("ignore-one-glob", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("ignore-one-glob"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 4 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 4 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-				])
+			const shouldRun = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
-		o("ignore-several", function() {
-			o.timeout(10000)
-			return execFile(command, args("ignore-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("ignore-several", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("ignore-several"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o(/All 2 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
+			o(/All 2 assertions passed/.test(stdout)).equals(true)(stdout.match(/\n[^\n]+\n$/))
 
-				const shouldRun = new Set([
-					"tests/main1.js",
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-				])
+			const shouldRun = new Set([
+				"tests/main1.js",
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 	})
 
@@ -590,99 +683,119 @@ o.spec("cli", function() {
 			"very/deep/tests/deep1.js",
 			"very/deep/tests/deeper/deep2.js"
 		]
-	}, ({cwd, command, args, allFiles}) => {
-		if (command !== "node") o("which", function() {
-			o.timeout(10000)
-			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+	}, ({cwd, command, run, allFiles}) => {
+		if (/^(?:npm|pnpm|yarn)$/.test(command)) o("which", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("which"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
-			})
+			o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
 		})
-		o("default", function() {
-			o.timeout(10000)
-			return execFile(command, args("default"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("default", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("default"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
 
-				o({code}).deepEquals({code: 1})
-				o({stderr}).notDeepEquals({stderr: ""})
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({correctNumberPassed: /All 2 assertions passed(?: \(old style total: \d+\))?\. Bailed out 2 times\s+$/.test(stdout)})
-					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
+			o({code}).deepEquals({code: 1})
+			o({stderr}).notDeepEquals({stderr: ""})
 
-				const shouldRun = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
-				const shouldTest = new Set([
-					"tests/main1.js",
-					"tests/main2.js",
-					"very/deep/tests/deep1.js",
-					"very/deep/tests/deeper/deep2.js"
-				])
+			o({correctNumberPassed: /All 2 assertions passed(?: \(old style total: \d+\))?\. Bailed out 2 times\s+$/.test(stdout)})
+				.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
 
-				const shouldThrow = new Set([
-					"tests/main2.js",
-					"very/deep/tests/deep1.js"
-				])
+			const shouldRun = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
+			const shouldTest = new Set([
+				"tests/main1.js",
+				"tests/main2.js",
+				"very/deep/tests/deep1.js",
+				"very/deep/tests/deeper/deep2.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles})
-			})
+			const shouldThrow = new Set([
+				"tests/main2.js",
+				"very/deep/tests/deep1.js"
+			])
+
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles})
 		})
 
-		o("preload-one", function() {
-			o.timeout(10000)
-			return execFile(command, args("preload-one"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("preload-one", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("preload-one"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
 
-				o({code}).deepEquals({code: 1})
-				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
-					.deepEquals({assertionReport: false})(stdout)
+			o({code}).deepEquals({code: 1})
+			o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 
-				const shouldRun = new Set([
-					"main.js",
-				])
-				const shouldTest = new Set([
-				])
-				const shouldThrow = new Set([
-					"main.js"
-				])
+			o({assertionReport: /\d+ assertions (?:pass|fail)ed/.test(stdout)})
+				.deepEquals({assertionReport: false})(stdout)
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles})
-			})
+			const shouldRun = new Set([
+				"main.js",
+			])
+			const shouldTest = new Set([
+			])
+			const shouldThrow = new Set([
+				"main.js"
+			])
+
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles})
+
 		})
-		o("preload-several", function() {
-			o.timeout(10000)
-			return execFile(command, args("preload-several"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("preload-several", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr;
+			try {
+				void ({code, stdout, stderr} = await run("preload-several"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 1})
-				o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
+			o({code}).deepEquals({code: 1})
+			o({"could not preload": stderr.includes("could not preload ./main.js")}).deepEquals({"could not preload": true})
 
-				o({assertionReport: /\d+ assertions (?:pass|fail)ed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
-					.deepEquals({assertionReport: false})(stdout)
+			o({assertionReport: /\d+ assertions (?:pass|fail)ed/.test(stdout)})
+				.deepEquals({assertionReport: false})(stdout)
 
-				const shouldRun = new Set([
-					"main.js",
-				])
-				const shouldTest = new Set([
-				])
-				const shouldThrow = new Set([
-					"main.js"
-				])
+			const shouldRun = new Set([
+				"main.js",
+			])
+			const shouldTest = new Set([
+			])
+			const shouldThrow = new Set([
+				"main.js"
+			])
 
-				checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles})
-			})
+			checkWhoRanAndHAdTests({shouldRun, shouldTest, shouldThrow, cwd, stdout, stderr, allFiles})
 		})
 	})
 	runningIn({
@@ -697,73 +810,78 @@ o.spec("cli", function() {
 			"default2.js",
 			"override.js",
 		]
-	}, ({cwd, command, args}) => {
-		if (command !== "node") o("which", function() {
-			o.timeout(10000)
-			return execFile(command, ["run", "which"], {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
+	}, ({cwd, command, run}) => {
+		if (/^(?:npm|pnpm|yarn)$/.test(command)) o("which", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("which"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
-			})
+			o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
 		})
-		o("metadata", function() {
-			o.timeout(10000)
-			return execFile(command, args("metadata"), {cwd}).then(({code, stdout, stderr}) => {
-				stderr = removeWarrnings(stderr)
-				if (command === "yarn") stdout = removeYarnExtraOutput(stdout)
+		o("metadata", async function() {
+			o.timeout(timeoutDelay)
+			let code, stdout, stderr
+			try {
+				void ({code, stdout, stderr} = await run("metadata"))
+			} catch (e) {
+				void ({code, stdout, stderr} = e)
+			}
+			stderr = removeWarnings(stderr)
+			stdout = removeExtraOutputFor(command, stdout)
 
-				o({code}).deepEquals({code: 0})
-				o({stderr}).deepEquals({stderr: ""})
+			o({code}).deepEquals({code: 0})
+			o({stderr}).deepEquals({stderr: ""})
 
-				o({correctNumberPassed: /All 3 assertions passed(?: \(old style total: \d+\))?\s+$/.test(stdout)})
-					.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
-				const files = [
-					"default1.js", "default2.js", "override.js"
-				]
-				files.forEach((file) => {
-					const fullPath = join(cwd, file)
-					const metadataFile = file === "override.js" ? "foo" : fullPath
+			o({correctNumberPassed: /All 3 assertions passed/.test(stdout)})
+				.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
+			const files = [
+				"default1.js", "default2.js", "override.js"
+			]
+			files.forEach((file) => {
+				const fullPath = join(cwd, file)
+				const metadataFile = file === "override.js" ? "foo" : fullPath
+				check({
+					haystack: stdout,
+					needle: fullPath + " ran",
+					label: "ran",
+					expected: true
+				})
 
-					check({
-						haystack: stdout,
-						needle: fullPath + " ran",
-						label: "ran",
-						expected: true
-					})
+				check({
+					haystack: stdout,
+					// __filename is also the name of the spec
+					needle: fullPath + " > test metadata name from test",
+					label: "metadata name from test",
+					expected: true
+				})
 
-					check({
-						haystack: stdout,
-						// __filename is also the name of the spec
-						needle: fullPath + " > test metadata name from test",
-						label: "metadata name from test",
-						expected: true
-					})
+				check({
+					haystack: stdout,
+					needle: metadataFile + " metadata file from test",
+					label: "metadata file from test",
+					expected: true
+				})
 
-					check({
-						haystack: stdout,
-						needle: metadataFile + " metadata file from test",
-						label: "metadata file from test",
-						expected: true
-					})
+				check({
+					haystack: stdout,
+					needle: fullPath + " > test metadata name from assertion",
+					label: "metadata name from assertion",
+					expected: true
+				})
 
-					check({
-						haystack: stdout,
-						needle: fullPath + " > test metadata name from assertion",
-						label: "metadata name from assertion",
-						expected: true
-					})
-
-					check({
-						haystack: stdout,
-						needle: metadataFile + " metadata file from assertion",
-						label: "metadata file from assertion",
-						expected: true
-					})
-
-
+				check({
+					haystack: stdout,
+					needle: metadataFile + " metadata file from assertion",
+					label: "metadata file from assertion",
+					expected: true
 				})
 			})
 		})

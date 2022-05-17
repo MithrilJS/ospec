@@ -12,11 +12,11 @@ if (typeof require !== "undefined") {
 	var loadFromDeps = (
 		typeof process !== "undefined"
 		&& process.argv.length >= 2
-		&& process.argv[1].match(/ospec[\/\\]node_modules[\/\\]\.bin[\/\\]ospec$/)
+		&& process.argv[1].match(/ospec-stable/)
 	)
 	/* eslint-disable global-require */
 	o = lib = require("../ospec")
-	if (loadFromDeps) o = require("ospec")
+	if (loadFromDeps) o = require("ospec-stable")
 	/* eslint-enable global-require */
 } else {
 	o = lib = window.o
@@ -152,7 +152,7 @@ o.spec("no output", function() {
 			oo.run(function(results, stats){
 				try {
 					o(results).deepEquals([])
-					o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0, onlyCalledAt: []})
+					o(stats).deepEquals({bailCount: 0, onlyCalledAt: []})
 					if (spy.callCount !== 2) done("spy was called "+spy.callCount+" times, expected 2")
 					else done()
 				} catch (e) {
@@ -740,7 +740,7 @@ o.spec("no output", function() {
 				oo.run(function(results, stats) {
 					try {
 						o(results).deepEquals([])
-						o(stats).deepEquals({asyncSuccesses: 6, bailCount: 0, onlyCalledAt: []})
+						o(stats).deepEquals({bailCount: 0, onlyCalledAt: []})
 						finished()
 					} catch (e) {
 						finished(e)
@@ -840,7 +840,7 @@ o.spec("no output", function() {
 							false, false, false, false, false, false, false,
 							false, false, false, false, false, false, false
 						])
-						o(stats).deepEquals({asyncSuccesses: 0, bailCount: 14, onlyCalledAt: []})
+						o(stats).deepEquals({bailCount: 14, onlyCalledAt: []})
 						finished()
 					} catch (e) {
 						finished(e)
@@ -1008,6 +1008,10 @@ o.spec("no output", function() {
 				})
 			})
 			o.spec("o.specTimeout", function() {
+				var shortDelay = 10
+				var middleDelay = 50
+				var longDelay = 200
+
 				o("throws when called inside of test definitions", function(done) {
 					var oo = lib.new()
 
@@ -1034,7 +1038,7 @@ o.spec("no output", function() {
 					var oo = lib.new()
 					var t
 
-					oo.specTimeout(10)
+					oo.specTimeout(shortDelay)
 					oo.beforeEach(function () {
 						t = new Date
 					})
@@ -1065,18 +1069,19 @@ o.spec("no output", function() {
 					var oo = lib.new()
 					var t
 
-					oo.specTimeout(50)
+
+					oo.specTimeout(middleDelay)
 					oo.beforeEach(function () {
 						t = new Date
 					})
 					oo.afterEach(function () {
 						var diff = new Date - t
-						o(diff >= 50).equals(true)
-						o(diff < 80).equals(true)
+						o(diff >= middleDelay).equals(true)
+						o(diff < longDelay).equals(true)
 					})
 
 					oo.spec("nested 1", function () {
-						oo.specTimeout(80)
+						oo.specTimeout(longDelay)
 					})
 
 					oo("", function() {
@@ -1110,7 +1115,7 @@ o.spec("no output", function() {
 				o("nested suites inherit the specTimeout", function(done) {
 					var oo = lib.new()
 
-					oo.specTimeout(50)
+					oo.specTimeout(middleDelay)
 					oo.spec("nested", function () {
 						oo.spec("deeply", function() {
 							var t
@@ -1120,8 +1125,8 @@ o.spec("no output", function() {
 							})
 							oo.afterEach(function () {
 								var diff = new Date - t
-								o(diff >= 50).equals(true)
-								o(diff < 80).equals(true)
+								o(diff >= middleDelay).equals(true)
+								o(diff < longDelay).equals(true)
 							})
 
 							oo("", function() {
@@ -1426,10 +1431,9 @@ o.spec("no output", function() {
 						}
 					)
 				*/}))
-						oo.run(function(results, stats){
+						oo.run(function(results){
 							try {
 								o(results.length).equals(1)
-								o(stats.asyncSuccesses).equals(1)
 								done()
 							} catch (e) {
 								done(e)
@@ -1449,10 +1453,9 @@ o.spec("no output", function() {
 						}
 					)
 				*/}))
-						oo.run(function(results, stats){
+						oo.run(function(results){
 							try {
 								o(results.length).equals(1)
-								o(stats.asyncSuccesses).equals(1)
 								done()
 							} catch (e) {
 								done(e)
@@ -1517,10 +1520,9 @@ o.spec("no output", function() {
 						}
 					)
 				*/}))
-						oo.run(function(results, stats){
+						oo.run(function(results){
 							try {
 								o(results.length).equals(1)
-								o(stats.asyncSuccesses).equals(1)
 								done()
 							} catch (e) {
 								done(e)
@@ -1821,7 +1823,7 @@ o.spec("no output", function() {
 					oo.run(function(results, stats) {
 						try {
 							o(getsFiveandThrowsError.callCount).equals(1)
-							o(stats).deepEquals({asyncSuccesses: 0, bailCount: 1, onlyCalledAt: []})
+							o(stats).deepEquals({bailCount: 1, onlyCalledAt: []})
 							o(results.length).equals(1)
 							o(results[0].pass).equals(false)
 							o(results[0].message).equals("An Error")
@@ -2124,7 +2126,7 @@ o.spec("no output", function() {
 					try {
 						o(spy.callCount).equals(2)
 						o(results).deepEquals([])
-						o(stats).deepEquals({asyncSuccesses: 0, bailCount: 0, onlyCalledAt: []})
+						o(stats).deepEquals({bailCount: 0, onlyCalledAt: []})
 						done()
 					} catch (e) {
 						done(e)
@@ -2145,7 +2147,7 @@ o.spec("reporting", function() {
 		function makeError(msg) {try{throw msg ? new Error(msg) : new Error} catch(e){return e}}
 		try {
 			var results = [{pass: true}, {pass: true}]
-			results.bailCount = results.asyncSuccesses = 0
+			results.bailCount = 0
 			var errCount = oo.report(results)
 
 			o(errCount).equals(0)

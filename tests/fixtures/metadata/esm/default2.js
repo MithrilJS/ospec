@@ -1,8 +1,11 @@
 
+
 "use strict"
 console.log(import.meta.url.slice(7) + " ran")
 
 import {default as o} from 'ospec'
+
+
 o.spec(import.meta.url.slice(7), function() {
 	
 o("test", function() {

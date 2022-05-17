@@ -32,6 +32,7 @@ else window.o = m()
 	// # Setup
 	// const
 	var hasProcess = typeof process === "object", hasOwn = ({}).hasOwnProperty
+
 	var hasSuiteName = arguments.length !== 0
 	var only = []
 	var ospecFileName = getStackName(ensureStackTrace(new Error), /[\/\\](.*?):\d+:\d+/)
@@ -583,13 +584,16 @@ else window.o = m()
 		result.message = message
 		result.error = error != null ? error : ensureStackTrace(new Error)
 	}
+	// workaround for Rollup
+	// direct `require` calles are hoisted at the top of the file
+	// and ran unconditionally.
 
-	function serialize(value) {
-		if (hasProcess) return require("util").inspect(value) // eslint-disable-line global-require
+	var serialize = function serialize(value) {
 		if (value === null || (typeof value === "object" && !(value instanceof Array)) || typeof value === "number") return String(value)
 		else if (typeof value === "function") return value.name || "<anonymous function>"
 		try {return JSON.stringify(value)} catch (e) {return String(value)}
 	}
+	try {serialize = require("util").inspect} catch(e) {/* deliberately empty */} // eslint-disable-line global-require
 
 	// o.spy is functionally equivalent to this:
 	// the extra complexity comes from compatibility issues

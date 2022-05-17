@@ -1,14 +1,13 @@
-import {rename as fsRename} from "node:fs/promises"
-import glob from "glob"
-
-function rename(x) {
-    fsRename(x, x.replace(/ospec(?:-stable)?((?:\.\w+)?)/, "ospec-stable$1"))
-}
+const {rename} = require("node:fs/promises")
+const glob = require("glob")
 
 glob("./node_modules/.bin/ospec*(.*)")
-.on("match", rename)
-.on("error", (e) => {
+
+.on("match", x => {rename(x, x.replace(/ospec(?:-stable)?((?:\.\w+)?)/, "ospec-stable$1"))})
+
+.on("error", e => {
     console.error(e)
     process.exit(1)
 })
+
 .on("end", () => {process.exit(0)})

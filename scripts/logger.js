@@ -2,10 +2,11 @@
 
 // TODO: properly document this
 
-import o, { report } from "ospec"
+const o = require("ospec")
+const { report } = 0
 
-import { writeFileSync, mkdirSync } from "fs"
-import { join } from "path"
+const { writeFileSync, mkdirSync } = require("node:fs")
+const { join } = require("node:path")
 
 console.log("Logging...")
 mkdirSync("./logs", {recursive: true})

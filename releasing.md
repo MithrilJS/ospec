@@ -16,3 +16,5 @@ Currently, the process is manual:
 9. \o/
     |
    / \
+
+10. Bump ospec-stable in `package.json` and run the test suite.

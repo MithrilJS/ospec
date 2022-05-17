@@ -16,6 +16,10 @@
 Change log
 ======
 
+### Upcoming
+
+- Work around a Rollup limitation, fixes [#25](https://github.com/MithrilJS/ospec/issues/25)
+
 ### 4.1.3
 
 #### Bug fixes

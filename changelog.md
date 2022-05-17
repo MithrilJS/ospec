@@ -16,7 +16,13 @@
 Change log
 ======
 
-### 4.1.2
+### 4.1.3
+
+#### Bug fixes
+_2022-05-18_
+- Fix post-install crash introduced in v4.1.2
+
+### 4.1.2 
 
 #### Bug fixes
 _2022-05-17_

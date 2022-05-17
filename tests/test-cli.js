@@ -17,19 +17,17 @@ const {performance} = require("node:perf_hooks")
 const {spawnSync, spawn} = require("child_process")
 const linkOrShim = isWindows ? require("cmd-shim") : symlink
 
-
-
 const projectCwd = process.cwd()
 const ospecPkgJsonPath = join(projectCwd, "package.json")
 const ospecLibPath = join(projectCwd, "ospec.js")
 const ospecBinPath = join(projectCwd, "bin/ospec")
 const fixturesDir = join(projectCwd, "./tests/fixtures")
 
-
 const parsed = /^v(\d+)\.(\d+)\./.exec(process.version)
 
 const supportsESM = parsed && Number(parsed[1]) > 13 || Number(parsed[1]) === 13 && Number(parsed[2]) >= 2
 
+const timoutDelay = 20000
 
 function stringify(arg) {
 	return JSON.stringify(arg, null, 2)
@@ -227,7 +225,7 @@ function runningIn({scenario, files}, suite) {
 			o.spec(mod, () => {
 				const cwd = join(scenarioPath, mod)
 				o.before(async () => {
-					o.timeout(10000)
+					o.timeout(timeoutDelay)
 					await remove(cwd)
 					await createDir(config.js, cwd, mod)
 					await createPackageJson(config["package.json"], cwd, mod)
@@ -326,7 +324,7 @@ o.spec("cli", function() {
 		]
 	}, ({cwd, command, run, allFiles}) => {
 		if (/^(?:npm|pnpm|yarn)$/.test(command)) o("which", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("which"))
@@ -341,7 +339,7 @@ o.spec("cli", function() {
 			o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
 		})
 		o("default", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("default"))
@@ -372,7 +370,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("explicit-one", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("explicit-one"))
@@ -397,7 +395,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("explicit-several", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("explicit-several"))
@@ -424,7 +422,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("explicit-glob", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("explicit-glob"))
@@ -451,7 +449,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("preload-one", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("preload-one"))
@@ -483,7 +481,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("preload-several", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("preload-several"))
@@ -516,7 +514,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("require-one", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("require-one"))
@@ -548,7 +546,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("require-several", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("require-several"))
@@ -581,7 +579,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("ignore-one", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("ignore-one"))
@@ -610,7 +608,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("ignore-one-glob", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("ignore-one-glob"))
@@ -637,7 +635,7 @@ o.spec("cli", function() {
 			checkWhoRanAndHAdTests({shouldRun, shouldTest, cwd, stdout, stderr, allFiles})
 		})
 		o("ignore-several", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("ignore-several"))
@@ -688,7 +686,7 @@ o.spec("cli", function() {
 		]
 	}, ({cwd, command, run, allFiles}) => {
 		if (/^(?:npm|pnpm|yarn)$/.test(command)) o("which", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("which"))
@@ -703,7 +701,7 @@ o.spec("cli", function() {
 			o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
 		})
 		o("default", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("default"))
@@ -742,7 +740,7 @@ o.spec("cli", function() {
 		})
 
 		o("preload-one", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("preload-one"))
@@ -772,7 +770,7 @@ o.spec("cli", function() {
 
 		})
 		o("preload-several", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr;
 			try {
 				void ({code, stdout, stderr} = await run("preload-several"))
@@ -815,7 +813,7 @@ o.spec("cli", function() {
 		]
 	}, ({cwd, command, run}) => {
 		if (/^(?:npm|pnpm|yarn)$/.test(command)) o("which", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("which"))
@@ -830,7 +828,7 @@ o.spec("cli", function() {
 			o({correctBinaryPath: stdout.includes(join(cwd, "node_modules/.bin/ospec"))}).deepEquals({correctBinaryPath: true})(stdout)
 		})
 		o("metadata", async function() {
-			o.timeout(10000)
+			o.timeout(timeoutDelay)
 			let code, stdout, stderr
 			try {
 				void ({code, stdout, stderr} = await run("metadata"))

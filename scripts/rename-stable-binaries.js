@@ -1,3 +1,7 @@
+// This is a dev script that is shipped with the package because
+// I couldn't find a cross-platform way of running code conditionally
+// The shell syntaxes are too complex.
+
 const {rename} = require("node:fs/promises")
 const glob = require("glob")
 

@@ -74,36 +74,7 @@ jobs:
           - 18
         architecture:
           - x64
-        shell :
-          - bash
-        include:
-          - os: windows-latest
-            shell: cmd
-            node_version: 14
-          - os: windows-latest
-            shell: powershell
-            node_version: 14
-          - os: windows-latest
-            shell: pwsh
-            node_version: 14
-          - os: windows-latest
-            shell: cmd
-            node_version: 16
-          - os: windows-latest
-            shell: powershell
-            node_version: 16
-          - os: windows-latest
-            shell: pwsh
-            node_version: 16
-          - os: windows-latest
-            shell: cmd
-            node_version: 18
-          - os: windows-latest
-            shell: powershell
-            node_version: 18
-          - os: windows-latest
-            shell: pwsh
-            node_version: 18
+
     steps:
     # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token
     - uses: actions/checkout@v2

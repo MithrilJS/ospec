@@ -27,8 +27,8 @@
     "self-test": "node ./bin/ospec tests/test-*.js",
     "self-test-api": "node ./bin/ospec tests/test-api.js",
     "self-test-cli": "node ./bin/ospec tests/test-cli.js",
-    "lint": "eslint --ignore-pattern \"tests/fixtures/**/*.*\" bin/ospec",
-    "lint-fix": "eslint --ignore-pattern \"tests/fixtures/**/*.*\" --fix . bin/ospec"
+    "lint": "eslint --cache --ignore-pattern \"tests/fixtures/**/*.*\" bin/ospec",
+    "lint-fix": "eslint --cache --ignore-pattern \"tests/fixtures/**/*.*\" --fix . bin/ospec"
   },
   "devDependencies": {
     "cmd-shim": "4.0.2",

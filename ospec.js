@@ -484,7 +484,11 @@ else window.o = m()
 			var self = this
 			assertion(self, value)
 			return function(message) {
-				results[self.i].message = message + "\n\n" + results[self.i].message
+				if (Array.isArray(message)) {
+					var args = arguments
+					message = message.reduce(function(acc, v, i) {return acc + args[i] + v})
+				}
+			  results[self.i].message = message + "\n\n" + results[self.i].message
 			}
 		}
 	}

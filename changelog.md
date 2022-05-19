@@ -18,7 +18,15 @@ Change log
 
 ### Upcoming
 
-- nothing so far
+#### Bug fixes
+
+- Properly interpolate values when using assertions to tag templages
+
+  ```JS
+  o(x).equals(y)`Description that interpolates ${context}`
+  ```
+
+  Will work as expected.
 
 ### 4.1.4
 

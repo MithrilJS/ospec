@@ -18,6 +18,10 @@ Change log
 
 ### Upcoming
 
+- *Nothing so far*
+
+### 4.1.5
+
 #### Bug fixes
 
 - Properly interpolate values when using assertions to tag templages

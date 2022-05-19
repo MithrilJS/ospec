@@ -26,7 +26,7 @@ Change log
   o(x).equals(y)`Description that interpolates ${context}`
   ```
 
-  Will work as expected.
+  Will work as expected. This fixes #43
 
 ### 4.1.4
 

@@ -18,7 +18,14 @@ Change log
 
 ### Upcoming
 
+- nothing so far
+
+### 4.1.4
+
+#### Bug fixes
+
 - Work around a Rollup limitation, fixes [#25](https://github.com/MithrilJS/ospec/issues/25) Thanks to [Ivan Kupalov](https://github.com/charlag) for the report and preliminary fix.
+- Properly handle objects with a null prototype in `.deepEquals` assertions. Fixes [#41](https://github.com/MithrilJS/ospec/issues/41)
 
 ### 4.1.3
 

@@ -528,7 +528,7 @@ else window.o = m()
 		if (a === null ^ b === null || a === undefined ^ b === undefined) return false // eslint-disable-line no-bitwise
 		if (typeof a === "object" && typeof b === "object") {
 			var aIsArgs = isArguments(a), bIsArgs = isArguments(b)
-			if (a.constructor === Object && b.constructor === Object && !aIsArgs && !bIsArgs) {
+			if (a.constructor === Object && b.constructor === Object && !aIsArgs && !bIsArgs || Object.getPrototypeOf(a) == null && Object.getPrototypeOf(b) == null) {
 				for (var i in a) {
 					if ((!(i in b)) || !deepEqual(a[i], b[i])) return false
 				}
@@ -552,6 +552,7 @@ else window.o = m()
 				}
 				return true
 			}
+			if (typeof a.valueOf !== 'function' || typeof b.valueOf !== 'function') return false
 			if (a.valueOf() === b.valueOf()) return true
 		}
 		return false

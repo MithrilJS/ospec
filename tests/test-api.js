@@ -468,17 +468,29 @@ o.spec("no output", function() {
 
 					oo("test", function() {
 						oo(a).equals(b)
+
 						oo(a).notEquals(2)
+
+
 						oo({a: [1, 2], b: 3}).deepEquals({a: [1, 2], b: 3})
 						oo([{a: 1, b: 2}, {c: 3}]).deepEquals([{a: 1, b: 2}, {c: 3}])
+						oo({__proto__: null, a: 1}).deepEquals({__proto__: null, a: 1})
+						oo({__proto__: null, a: 1}).notDeepEquals({a: 1})
+						oo({ a: 1}).notDeepEquals({__proto__: null, a: 1})
+						oo({__proto__: null}).notDeepEquals({__proto__: null, a: 1})
+						oo({__proto__: null, a: 1}).notDeepEquals({__proto__: null})
+
+
 						oo(function(){throw new Error()}).throws(Error)
 						oo(function(){"ayy".foo()}).throws(TypeError)
 						oo(function(){Math.PI.toFixed(Math.pow(10,20))}).throws(RangeError)
 						oo(function(){decodeURIComponent("%")}).throws(URIError)
 
+
 						oo(function(){"ayy".foo()}).notThrows(SyntaxError)
 						oo(function(){throw new Error("foo")}).throws("foo")
 						oo(function(){throw new Error("foo")}).notThrows("bar")
+
 
 						var undef1 = {undef: void 0}
 						var undef2 = {UNDEF: void 0}
@@ -535,6 +547,13 @@ o.spec("no output", function() {
 							done(e)
 						}
 					})
+				})
+				o('handles runtime error gracefully', function() {
+					var oo = lib.new()
+					oo("test", function() {	
+						o(()=>oo(0).satisfies(function(){throw new Error("Assertion Error")})).throws(Error)
+					})
+					oo.run(function(results) {LOG(results)})
 				})
 				o.spec("spies", function() {
 					var supportsFunctionMutations = false;

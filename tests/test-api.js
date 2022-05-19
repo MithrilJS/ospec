@@ -60,7 +60,7 @@ o.spec("no output", function() {
 	if (spec.toString().indexOf("console") !== -1) {
 		throw new Error("Avoid referencing the console in the 'no output' test suite. For logging, use the `LOG(...)` helper.")
 	} else {
-		o.spec("", spec)
+		o.spec("-", spec)
 	}
 	function spec(){
 		o("API", function() {
@@ -479,6 +479,19 @@ o.spec("no output", function() {
 						oo({a: 1}).notDeepEquals({__proto__: null, a: 1})
 						oo({__proto__: null}).notDeepEquals({__proto__: null, a: 1})
 						oo({__proto__: null, a: 1}).notDeepEquals({__proto__: null})
+
+						// #29
+						var im1 = [1, 2]
+						Object.defineProperty(im1, "x", {value: 5, enumrable: false})
+						var im2 = [1, 2]
+						Object.defineProperty(im2, "x", {value: 4, enumrable: false})
+						oo(im1).deepEquals(im2)
+
+						var im3 = {y: 4, z: 5}
+						Object.defineProperty(im3, "x", {value: 5, enumrable: false})
+						var im4 = {y: 4, z: 5}
+						Object.defineProperty(im4, "x", {value: 4, enumrable: false})
+						oo(im3).deepEquals(im4)
 
 
 						oo(function(){throw new Error()}).throws(Error)

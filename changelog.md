@@ -18,11 +18,17 @@ Change log
 
 ### Upcoming
 
-- *Nothing so far*
+- *Noothing yet*
+
+### 4.1.6
+_2022-05-19_
+
+- `.deepEquals()` now ignores non-enumerable keys. This makes `seamless-immutable` objects comparable and fixes [#24](https://github.com/MithrilJS/ospec/issues/24).
 
 ### 4.1.5
+_2022-05-19_
 
-#### Bug fixes
+#### Bug fix
 
 - Properly interpolate values when using assertions to tag templages
 
@@ -30,18 +36,19 @@ Change log
   o(x).equals(y)`Description that interpolates ${context}`
   ```
 
-  Will work as expected. This fixes #43
+  Will work as expected. This fixes [#43](https://github.com/MithrilJS/ospec/issues/43)
 
 ### 4.1.4
+_2022-05-19_
 
-#### Bug fixes
+#### Bug fix
 
 - Work around a Rollup limitation, fixes [#25](https://github.com/MithrilJS/ospec/issues/25) Thanks to [Ivan Kupalov](https://github.com/charlag) for the report and preliminary fix.
 - Properly handle objects with a null prototype in `.deepEquals` assertions. Fixes [#41](https://github.com/MithrilJS/ospec/issues/41)
 
 ### 4.1.3
 
-#### Bug fixes
+#### Bug fix
 _2022-05-18_
 - Fix post-install crash introduced in v4.1.2
 

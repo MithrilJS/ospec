@@ -526,7 +526,11 @@ else window.o = m()
 			return true
 		}
 	}
-
+	function getEnumerableProps(x) {
+		var desc = Object.getOwnPropertyDescriptors(x)
+		return Object.keys(desc).filter(function(k){return desc[k].enumerable})
+	}
+	
 	function deepEqual(a, b) {
 		if (a === b) return true
 		if (a === null ^ b === null || a === undefined ^ b === undefined) return false // eslint-disable-line no-bitwise
@@ -542,7 +546,7 @@ else window.o = m()
 				return true
 			}
 			if (a.length === b.length && (Array.isArray(a) && Array.isArray(b) || aIsArgs && bIsArgs)) {
-				var aKeys = Object.getOwnPropertyNames(a), bKeys = Object.getOwnPropertyNames(b)
+				var aKeys = getEnumerableProps(a), bKeys = getEnumerableProps(b)
 				if (aKeys.length !== bKeys.length) return false
 				for (var i = 0; i < aKeys.length; i++) {
 					if (!hasOwn.call(b, aKeys[i]) || !deepEqual(a[aKeys[i]], b[aKeys[i]])) return false

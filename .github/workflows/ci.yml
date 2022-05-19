@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   test-cli:
     runs-on: ${{ matrix.os }}
-    name: CLI Tests, Node.js ${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }} with ${{ matrix.shell }}
+    name: CLI Tests, node v${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }} with ${{ matrix.shell }}
     strategy:
       matrix:
         os:
@@ -50,18 +50,35 @@ jobs:
             node_version: 18
     steps:
     # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Use Node.js ${{ matrix.node_version }}
       uses: actions/setup-node@v2
       with:
         node-version: ${{ matrix.node_version }}
+
+    - name: Get npm cache directory
+      id: npm-cache-dir
+      shell: bash
+      run: |
+        echo "::set-output name=dir::$(npm config get cache)"
+
+    - uses: actions/cache@v2
+      with:
+        path: ${{ steps.npm-cache-dir.outputs.dir }}
+        key: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--${{ matrix.shell }}--${{
+          hashFiles(''**/package-lock.json'')
+        }}'
+        restore-keys: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--${{ matrix.shell }}--'
+
     - run: npm ci
     - run: corepack enable
     - run: npm run test-cli
+
+
   test-api:
     runs-on: ${{ matrix.os }}
-    name: API tests, Node.js ${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }} with ${{ matrix.shell }}
+    name: API tests, node v${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }}
     strategy:
       matrix:
         os:
@@ -80,12 +97,27 @@ jobs:
 
     steps:
     # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
-    - name: Use Node.js ${{ matrix.node_version }}
+    - name: Use Node.js v${{ matrix.node_version }}
       uses: actions/setup-node@v2
       with:
         node-version: ${{ matrix.node_version }}
+
+    - name: Get npm cache directory
+      id: npm-cache-dir
+      shell: bash
+      run: |
+        echo "::set-output name=dir::$(npm config get cache)"
+
+    - uses: actions/cache@v2
+      with:
+        path: ${{ steps.npm-cache-dir.outputs.dir }}
+        key: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--default-shell--${{
+          hashFiles(''**/package-lock.json'')
+        }}'
+        restore-keys: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--default-shell--'
+
     - run: npm ci
     - run: corepack enable
     - run: npm run test-api

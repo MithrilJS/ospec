@@ -476,7 +476,7 @@ o.spec("no output", function() {
 						oo([{a: 1, b: 2}, {c: 3}]).deepEquals([{a: 1, b: 2}, {c: 3}])
 						oo({__proto__: null, a: 1}).deepEquals({__proto__: null, a: 1})
 						oo({__proto__: null, a: 1}).notDeepEquals({a: 1})
-						oo({ a: 1}).notDeepEquals({__proto__: null, a: 1})
+						oo({a: 1}).notDeepEquals({__proto__: null, a: 1})
 						oo({__proto__: null}).notDeepEquals({__proto__: null, a: 1})
 						oo({__proto__: null, a: 1}).notDeepEquals({__proto__: null})
 
@@ -548,13 +548,7 @@ o.spec("no output", function() {
 						}
 					})
 				})
-				o('handles runtime error gracefully', function() {
-					var oo = lib.new()
-					oo("test", function() {	
-						o(()=>oo(0).satisfies(function(){throw new Error("Assertion Error")})).throws(Error)
-					})
-					oo.run(function(results) {LOG(results)})
-				})
+
 				o.spec("spies", function() {
 					var supportsFunctionMutations = false;
 					// eslint-disable-next-line no-empty, no-implicit-coercion

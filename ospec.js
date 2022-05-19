@@ -552,7 +552,7 @@ else window.o = m()
 				}
 				return true
 			}
-			if (typeof a.valueOf !== 'function' || typeof b.valueOf !== 'function') return false
+			if (typeof a.valueOf !== "function" || typeof b.valueOf !== "function") return false
 			if (a.valueOf() === b.valueOf()) return true
 		}
 		return false

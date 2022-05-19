@@ -1338,11 +1338,22 @@ o.spec("no output", function() {
 					oo("description", function() {
 						oo(1).equals(2)("howdy")
 					})
+					try {
+						eval("const a = `${5}`")
+						eval("oo('taggedTemplate', ()=>{oo(1).equals(2)`h${'o'}w${'d'}y`})")
+					} catch(e) {
+						oo("taggedTemaplate", function() {
+							oo(1).equals(2)(['h', 'w', 'y'], 'o', 'd')
+	
+						})	
+					}
 					oo.run(function(results) {
 						try {
-							o(results.length).equals(2)
+							o(results.length).equals(3)
 							o(results[1].message).equals("howdy\n\n"+results[0].message)
 							o(results[1].pass).equals(false)
+							o(results[2].message).equals("howdy\n\n"+results[0].message)
+							o(results[2].pass).equals(false)
 
 							done()
 						} catch (e) {

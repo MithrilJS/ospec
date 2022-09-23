@@ -18,7 +18,9 @@ Change log
 
 ### Upcoming
 
-- *Noothing yet*
+#### Bug fix
+
+- Explicitly `exit()` the process after all test have passed, to avoid the process hanging due to a dangling `setInterval` somewhere.
 
 ### 4.1.6
 _2022-05-19_

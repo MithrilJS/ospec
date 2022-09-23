@@ -265,7 +265,7 @@ else window.o = m()
 			if (typeof reporter === "function") reporter(results, stats)
 			else {
 				var errCount = o.report(results, stats)
-				if (hasProcess && errCount !== 0) process.exit(1) // eslint-disable-line no-process-exit
+				if (hasProcess) process.exit(errCount !== 0 ? 1 : undefined) // eslint-disable-line no-process-exit
 			}
 		}, null, null)
 

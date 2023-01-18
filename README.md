@@ -665,7 +665,7 @@ o.spec("testing", function() {
 ### Definitions
 
 - A **test** is the function passed to `o("description", function test() {})`.
-- A **hook** is a function passed to `o.before()`, `o.after()`. `o.beforeEach()` and `o.afterEach()`
+- A **hook** is a function passed to `o.before()`, `o.after()`. `o.beforeEach()` and `o.afterEach()`.
 - A **task** designates either a test or a hook.
 - A given test and its associated `beforeEach` and `afterEach` hooks form a **streak**. The `beforeEach` hooks run outermost first, the `afterEach` run outermost last. The hooks are optional, and are tied at test-definition time in the `o.spec()` calls that enclose the test.
 - A **spec** is a collection of streaks, specs, one `before` hook and one `after` hook. Each component is optional. Specs are defined with the `o.spec("spec name", function specDef() {})` calls.
@@ -698,7 +698,7 @@ While some testing libraries consider error thrown as assertions failure, `ospec
 
 - A syntax error in a file causes the file to be ignored by the runner.
 - At test-definition time:
-  - An error thrown at the root of a file will cause subsequent tests and specs to be ignored
+  - An error thrown at the root of a file will cause subsequent tests and specs to be ignored.
   - An error thrown in a spec definition will cause the spec to be ignored.
 - At test-execution time:
   - An error thrown in the `before` hook will cause the streaks and nested specs to be ignored. The `after` hook will run.

@@ -1352,13 +1352,14 @@ o.spec("no output", function() {
 						oo(1).equals(2)("howdy")
 					})
 					try {
+						/* eslint-disable no-eval */
 						eval("const a = `${5}`")
 						eval("oo('taggedTemplate', ()=>{oo(1).equals(2)`h${'o'}w${'d'}y`})")
+						/* eslint-enable no-eval */
 					} catch(e) {
 						oo("taggedTemaplate", function() {
-							oo(1).equals(2)(['h', 'w', 'y'], 'o', 'd')
-	
-						})	
+							oo(1).equals(2)(["h", "w", "y"], "o", "d")
+						})
 					}
 					oo.run(function(results) {
 						try {

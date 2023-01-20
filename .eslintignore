@@ -1,19 +1,8 @@
 /coverage
 /**/node_modules
-/jsconfig.json
 /npm-debug.log
-/.vscode
 /**/.DS_Store
 /.eslintcache
 
 # Ignore this until we find a way to lint them properly
 tests/fixtures/**/esm/**/*.js
-
-# These are artifacts from various scripts
-/dist
-/archive
-/mithril.js
-/mithril.min.js
-
-# And the examples are ignored (for now).
-/examples

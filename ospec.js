@@ -488,7 +488,7 @@ else window.o = m()
 					var args = arguments
 					message = message.reduce(function(acc, v, i) {return acc + args[i] + v})
 				}
-			  results[self.i].message = message + "\n\n" + results[self.i].message
+				results[self.i].message = message + "\n\n" + results[self.i].message
 			}
 		}
 	}

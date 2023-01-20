@@ -36,20 +36,32 @@ const moduleKinds = supportsESM
 		"esm",
 	]
 	: (console.log("Skipping ESM tests due to lack of platform support"), ["cjs"])
+
+// ospec version is always "@current", regardless of `loadFromDeps`, which involves the runner in this
+// file, not the one being tested.
+
+const versions = {ospec:"@current"}
 const commands = [
 	"npm",
 	"pnpm",
 	"yarn"
 ].filter((launcher) => {
 	try {
-		return spawnSync(launcher, ["-v"], {shell: true}).status === 0
+		const r = spawnSync(launcher, ["-v"], {shell: true})
+		versions[launcher] = ("@"+r.stdout).trim()
+		return r.status === 0
 	} catch(e) {
 		return false
 	}
 })
 commands.unshift("ospec")
 
-console.log(`Testing (${moduleKinds.join(" + ")}) x (${commands.join(" + ")})`)
+console.log(`Testing (${
+	moduleKinds.join(" + ")
+}) x (${
+	commands.map((c) => c+versions[c]).join(" + ")
+})`)
+
 
 function childPromise(child) {
 	const err = []

@@ -1036,6 +1036,7 @@ o.spec("no output", function() {
 			o.spec("o.specTimeout", function() {
 				var shortDelay = 10
 				var middleDelay = 50
+				var middleDelay2 = 80
 				var longDelay = 200
 
 				o("throws when called inside of test definitions", function(done) {
@@ -1070,8 +1071,8 @@ o.spec("no output", function() {
 					})
 					oo.afterEach(function () {
 						var diff = new Date - t
-						o(diff >= 10).equals(true)
-						o(diff < 200).equals(true)
+						o(diff >= shortDelay).equals(true)(diff + " should have taken more than " + shortDelay)
+						o(diff < longDelay).equals(true)(diff + " should have taken less than " + longDelay)
 					})
 
 					oo("", function() {
@@ -1116,7 +1117,7 @@ o.spec("no output", function() {
 						return {then: function() {}}
 					})
 					oo.spec("nested 2", function () {
-						oo.specTimeout(80)
+						oo.specTimeout(middleDelay2)
 					})
 					oo.spec("nested 3", function () {
 						oo("", function() {

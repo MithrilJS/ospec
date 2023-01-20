@@ -726,7 +726,7 @@ o.spec("cli", function() {
 			o({code}).deepEquals({code: 1})
 			o({stderr}).notDeepEquals({stderr: ""})
 
-			o({correctNumberPassed: /All 2 assertions passed(?: \(old style total: \d+\))?\. Bailed out 2 times\s+$/.test(stdout)})
+			o({correctNumberPassed: /All 2 assertions passed\. Bailed out 2 times\s+(ELIFECYCLE[^]*)?$/.test(stdout)})
 				.deepEquals({correctNumberPassed: true})(stdout.match(/\n[^\n]+\n[^\n]+\n$/))
 
 			const shouldRun = new Set([

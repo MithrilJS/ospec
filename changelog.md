@@ -18,9 +18,14 @@ Change log
 
 ### Upcoming
 
+### 4.1.7
+_2023-01-20_
+
 #### Bug fix
 
-- Explicitly `exit()` the process after all test have passed, to avoid the process hanging due to a dangling `setInterval` somewhere.
+- Explicitly `exit()` the process after all test have passed, to avoid the process hanging due to a dangling `setInterval` somewhere (by [Már Örlygsson](https://github.com/maranomynet), [#51](https://github.com/MithrilJS/ospec/pull/51)).
+- Tweak the CLI test suite to accomodate the new `pnpm` output on error.
+- Misc repo maintenance
 
 ### 4.1.6
 _2022-05-19_

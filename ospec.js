@@ -858,11 +858,14 @@ else window.o = m()
 		green: "32;1m"
 	}
 
+	// this is needed to work around the formating done by node see https://nodejs.org/api/util.html#utilformatformat-args
+	function escapePercent(x){return String(x).replace(/%/g, "%%")}
+
 	// console style for terminals
 	// see https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
 	function highlight(message, color) {
 		var code = colorCodes[color] || colorCodes.red;
-		return hasProcess ? (process.stdout.isTTY ? "\x1b[" + code + message + "\x1b[0m" : message) : "%c" + message + "%c "
+		return hasProcess ? (process.stdout.isTTY ? "\x1b[" + code + escapePercent(message) + "\x1b[0m" : escapePercent(message)) : "%c" + message + "%c "
 	}
 
 	// console style for the Browsers

@@ -1,4 +1,10 @@
 "use strict"
+// const LOG = console.log
+// const p = (...args) => {
+// 	LOG(...args)
+// 	return args.pop()
+// }
+
 /*
 Ospec is made of four parts:
 
@@ -40,14 +46,23 @@ else window.o = m()
 	var subjects = []
 
 	// stack-managed globals
-	var globalBail
-	var globalContext = rootSpec
-	var globalDepth = 1
-	var globalFile
-	var globalTestOrHook = null
-	var globalTimeout = noTimeoutRightNow
-	var globalTimedOutAndPendingResolution = 0
 
+	// Are we in the process of baling out?
+	var $bail = false
+	// current spec
+	var $context = rootSpec
+	// spec nesting level
+	var $depth = 1
+	// the current file name
+	var $file
+	// the task (test/hook) that is currently running
+	var $task = null
+	// the current o.timeout implementation
+	var $timeout
+	// count the total amount of tests that timed out and didn't complete after the fact before the run ends
+	var $timedOutAndPendingResolution = 0
+	// are we using the v5+ API?
+	var $localAssertions = false
 	// Shared state, set only once, but initialization is delayed
 	var results, stats, timeoutStackName
 
@@ -64,9 +79,6 @@ else window.o = m()
 		return e.stack && exp.test(e.stack) ? e.stack.match(exp)[1] : null
 	}
 
-	function noTimeoutRightNow() {
-		throw new Error("`o.timeout()` must be called synchronously from within a test definition or a hook")
-	}
 
 	function timeoutParamDeprecationNotice(n) {
 		console.error(new Error("`timeout()` as a test argument has been deprecated, use `o.timeout()`"))
@@ -113,27 +125,29 @@ else window.o = m()
 		// in order to also cover nested hooks.
 		if (isRunning() && err != null) throw new Error("Test definitions and hooks shouldn't be nested. To group tests, use 'o.spec()'")
 		this.context = null
-		this.file = globalFile
+		this.file = $file
 		// give tests an extra level of depth (simplifies bail out logic)
-		this.depth = globalDepth + (hookName == null ? 1 : 0)
-		this.doneTwiceError = validateDone(fn, err) || "A thenable should only be resolved once"
+		this.depth = $depth + (hookName == null ? 1 : 0)
+		this.doneTwiceError = !$localAssertions && validateDone(fn, err) || "A thenable should only be resolved once"
 		this.error = err
+		this.internal = err == null
 		this.fn = fn
 		this.hookName = hookName
+		this.localAssertions = $localAssertions
 	}
 
 	function hook(name) {
 		return function(predicate) {
-			if (globalContext[name].length > 0) throw new Error("Attempt to register o." + name + "() more than once. A spec can only have one hook of each kind")
-			globalContext[name][0] = new Task(predicate, ensureStackTrace(new Error), name)
+			if ($context[name].length > 0) throw new Error("Attempt to register o." + name + "() more than once. A spec can only have one hook of each kind")
+			$context[name][0] = new Task(predicate, ensureStackTrace(new Error), name)
 		}
 	}
 
 	function unique(subject) {
-		if (hasOwn.call(globalContext.children, subject)) {
+		if (hasOwn.call($context.children, subject)) {
 			console.warn("A test or a spec named '" + subject + "' was already defined in this spec")
 			console.warn(o.cleanStackTrace(ensureStackTrace(new Error)).split("\n")[0])
-			while (hasOwn.call(globalContext.children, subject)) subject += "*"
+			while (hasOwn.call($context.children, subject)) subject += "*"
 		}
 		return subject
 	}
@@ -142,10 +156,69 @@ else window.o = m()
 	function o(subject, predicate) {
 		if (predicate === undefined) {
 			if (!isRunning()) throw new Error("Assertions should not occur outside test definitions")
+			if ($task.localAssertions) throw new SyntaxError("Illegal global assertion, use a local `o()`")
 			return new Assertion(subject)
 		} else {
 			subject = String(subject)
-			globalContext.children[unique(subject)] = new Task(predicate, ensureStackTrace(new Error), null)
+			$context.children[unique(subject)] = new Task(predicate, ensureStackTrace(new Error), null)
+		}
+	}
+	function noSpecOrTestHasBeenDefined() {
+		return $context === rootSpec
+		&& Object.keys(rootSpec).every(k => {
+			const item = rootSpec[k]
+			return item == null || (Array.isArray(item) ? item : Object.keys(item)).length === 0
+		})
+	}
+	o.globalAssertions = function(cb) {
+		if (isRunning()) throw new SyntaxError("local/global modes can only be called before o.run()")
+		if (cb === "override"){
+			// escape hatch for the CLI test suite
+			// ideally we should use --preload that requires
+			// in depth rethinking of the CLI test suite that I'd rather
+			// avoid while changing the core at the same time.
+			$localAssertions = false
+			return
+		} else if (cb == null) {
+			if (noSpecOrTestHasBeenDefined()) {
+				$localAssertions = false
+				return
+			} else {
+				throw new SyntaxError("local/global mode can only be toggled before defining specs and tests")
+			}
+		} else {
+			const previous = $localAssertions
+			try {
+				$localAssertions = false
+				cb()
+			} finally {
+				$localAssertions = previous
+			}
+		}
+	}
+	o.localAssertions = function(cb) {
+		if (isRunning()) throw new SyntaxError("local/global modes can only be called before o.run()")
+		if (cb === "override"){
+			// escape hatch for the CLI test suite
+			// ideally we should use --preload that requires
+			// in depth rethinking of the CLI test suite that I'd rather
+			// avoid while changing the core at the same time.
+			$localAssertions = true
+			return
+		} if (cb == null) {
+			if (noSpecOrTestHasBeenDefined()) {
+				$localAssertions = true
+			} else {
+				throw new SyntaxError("local/global mode can only be toggled before defining specs and tests")
+			}
+		} else {
+			const previous = $localAssertions
+			try {
+				$localAssertions = true
+				cb()
+			} finally {
+				$localAssertions = previous
+			}
 		}
 	}
 
@@ -156,9 +229,9 @@ else window.o = m()
 
 	o.specTimeout = function (t) {
 		if (isRunning()) throw new Error("o.specTimeout() can only be called before o.run()")
-		if (globalContext.specTimeout != null) throw new Error("A default timeout has already been defined in this context")
+		if ($context.specTimeout != null) throw new Error("A default timeout has already been defined in this context")
 		if (typeof t !== "number") throw new Error("o.specTimeout() expects a number as argument")
-		globalContext.specTimeout = t
+		$context.specTimeout = t
 	}
 
 	o.new = init
@@ -166,20 +239,16 @@ else window.o = m()
 	o.spec = function(subject, predicate) {
 		if (isRunning()) throw new Error("`o.spec()` can't only be called at test definition time, not run time")
 		// stack managed globals
-		var parent = globalContext
+		var parent = $context
 		var name = unique(subject)
-		globalContext = globalContext.children[name] = new Spec()
-		globalDepth++
+		$context = $context.children[name] = new Spec()
+		$depth++
 		try {
 			predicate()
-		} catch(e) {
-			console.error(e)
-			globalContext.children[name].children = {"> > BAILED OUT < < <": new Task(function(){
-				throw e
-			}, ensureStackTrace(new Error), null)}
+		} finally {
+			$depth--
+			$context = parent
 		}
-		globalDepth--
-		globalContext = parent
 	}
 
 	var onlyCalledAt = []
@@ -206,7 +275,7 @@ else window.o = m()
 	}
 
 	o.timeout = function(n) {
-		globalTimeout(n)
+		$timeout(n)
 	}
 
 	// # Test runner
@@ -238,16 +307,17 @@ else window.o = m()
 		if (arguments.length === 0) {
 			if (!isRunning()) throw new Error("getting `o.metadata()` is only allowed at test run time")
 			return {
-				file: globalTestOrHook.file,
-				name: globalTestOrHook.context
+				file: $task.file,
+				name: $task.context
 			}
 		} else {
-			if (isRunning() || globalContext !== rootSpec) throw new Error("setting `o.metadata()` is only allowed at the root, at test definition time")
-			globalFile = opts.file
+			if (isRunning() || $context !== rootSpec) throw new Error("setting `o.metadata()` is only allowed at the root, at test definition time")
+			$file = opts.file
 		}
 	}
+
 	o.run = function(reporter) {
-		if (rootSpec !== globalContext) throw new Error("`o.run()` can't be called from within a spec")
+		if (rootSpec !== $context) throw new Error("`o.run()` can't be called from within a spec")
 		if (isRunning()) throw new Error("`o.run()` has already been called")
 		results = []
 		stats = {
@@ -261,7 +331,7 @@ else window.o = m()
 		}
 
 		var finalize = new Task(function() {
-			timeoutStackName = getStackName({stack: o.cleanStackTrace(ensureStackTrace(new Error))}, /([\w \.]+?:\d+:\d+)/)
+			timeoutStackName = getStackName({stack: o.cleanStackTrace(ensureStackTrace(new Error))}, /([w .]+?:d+:d+)/)
 			if (typeof reporter === "function") reporter(results, stats)
 			else {
 				var errCount = o.report(results, stats)
@@ -281,10 +351,10 @@ else window.o = m()
 			if (spec.specTimeout) defaultDelay = spec.specTimeout
 
 			// stack-managed globals
-			var previousBail = globalBail
-			globalBail = function() {bailed = true; stats.bailCount++}
+			var previousBail = $bail
+			$bail = function() {bailed = true; stats.bailCount++}
 			var restoreStack = new Task(function() {
-				globalBail = previousBail
+				$bail = previousBail
 			}, null, null)
 
 			beforeEach = [].concat(
@@ -295,7 +365,6 @@ else window.o = m()
 				spec.afterEach,
 				afterEach
 			)
-
 			series(
 				[].concat(
 					spec.before,
@@ -309,9 +378,8 @@ else window.o = m()
 						) {
 							tasks.push(new Task(function(done) {
 								if (bailed) return done()
-								o.timeout(Infinity)
 								subjects.push(key)
-								var popSubjects = new Task(function pop() {subjects.pop(), done()}, null, null)
+								var popSubjects = new Task(function pop() {subjects.pop(); done()}, null, null)
 								if (spec.children[key] instanceof Task) {
 									// this is a test
 									series(
@@ -349,52 +417,146 @@ else window.o = m()
 				var task = tasks[cursor++]
 				var fn = task.fn
 				var isHook = task.hookName != null
-				var isInternal = task.error == null
 				var taskStartTime = new Date
 
 				// let
 				var delay = defaultDelay
-				var isAsync = false
-				var isDone = false
-				var isFinalized = false
+				var hasMovedOn = false
+				var hasConcluded = false
 				var timeout
 
-				if (!isInternal) {
-					globalTestOrHook = task
-					task.context = subjects.join(" > ")
-					if (isHook) {
-						task.context = "o." + task.hookName + Array.apply(null, {length: task.depth}).join("*") + "( " + task.context + " )"
+				var isDone = false
+				var isAsync = false
+				var promises = []
+
+				if (task.internal) {
+					// internal tasks still use the legacy done() system.
+					// handled hereafter in a simplified fashion, without timeout
+					// and bailout handling (let it crash)
+					if (fn.length === 0) {
+						fn()
+						next()
 					}
+					else fn(function() {
+						if (hasMovedOn) throw new Error("Internal Error, done() should only be called once")
+						hasMovedOn = true
+						next()
+					})
+					return
 				}
-				globalTimeout = function timeout (t) {
+
+				$task = task
+				task.context = subjects.join(" > ")
+				if (isHook) {
+					task.context = "o." + task.hookName + Array.apply(null, {length: task.depth}).join("*") + "( " + task.context + " )"
+				}
+
+				$timeout = function timeout (t) {
+					if (isAsync || hasConcluded || isDone) throw new Error("`o.timeout()` must be called synchronously from within a test definition or a hook")
 					if (typeof t !== "number") throw new Error("timeout() and o.timeout() expect a number as argument")
 					delay = t
 				}
+				if (task.localAssertions) {
+					var assert = function o(value) {
 
+						return new Assertion(value, task)
+					}
+					assert.metadata = o.metadata
+					assert.timeout = o.timeout
+					assert.spy = createSpy(function(self, args, fn, spy) {
+						if (hasConcluded) fail(new Assertion().i, "spy ran after its test was concluded\n"+fn.toString())
+						return globalSpyHelper(self, args, fn, spy)
+					})
+					assert.o = assert
+
+					Object.defineProperty(assert, "done", {get(){
+						let f, r
+						promises.push(new Promise((_f, _r)=>{f = _f, r = _r}))
+						function done(x){
+							return x == null ? f() : r(x)
+						}
+						return done
+					}})
+
+					// runs when a test had an error or returned a promise
+					const conclude = (err, threw) => {
+						if (threw) {
+							if (err instanceof Error) fail(new Assertion().i, err.message, err)
+							else fail(new Assertion().i, String(err), null)
+							$bail()
+							if (task.hookName === "beforeEach") {
+								while (!task.internal && tasks[cursor].depth > task.depth) cursor++
+							}
+						}
+						if (timeout !== undefined) {
+							timeout = clearTimeout(timeout)
+						}
+						hasConcluded = true
+						// if the timeout already expired, the suite has moved on.
+						// Doing it again would be a bug.
+						if (!hasMovedOn) moveOn()
+
+					}
+					// hops on to the next task after either conclusion or timeout,
+					// whichever comes first
+					const moveOn = () => {
+						hasMovedOn = true
+						if (isAsync) next()
+						else nextTickish(next)
+					}
+					const startTimer = () => {
+						timeout = setTimeout(function() {
+							timeout = undefined
+							fail(new Assertion().i, "async test timed out after " + delay + "ms", null)
+							moveOn()
+						}, Math.min(delay, 0x7fffffff))
+
+					}
+					try {
+						var result = fn(assert)
+						if (result != null && typeof result.then === 'function') {
+							// normalize thenables so that we only conclude once
+							promises.push(Promise.resolve(result))
+						}
+						if (promises.length > 0) {
+							Promise.all(promises).then(
+								function() {conclude()},
+								function(e) {conclude(e,true)}
+							)
+							isAsync = true
+							startTimer()
+						} else {
+							hasConcluded = true
+							moveOn()
+						}
+					} catch(e) {
+						conclude(e, true)
+					}
+					return
+				}
+				// for the legacy API
 				try {
 					if (fn.length > 0) {
 						fn(done, timeoutParamDeprecationNotice)
 					} else {
-						var p = fn()
-						if (p && p.then) {
+						var prm = fn()
+						if (prm && prm.then) {
 							// Use `_done`, not `finalize` here to defend against badly behaved thenables.
 							// Let it crash if `then()` doesn't work as expected.
-							p.then(function() { _done(null, false) }, function(e) {_done(e, true)})
+							prm.then(function() { _done(null, false) }, function(e) {_done(e, true)})
 						} else {
 							finalize(null, false, false)
 						}
 					}
-					if (!isFinalized) {
+					if (!hasMovedOn) {
 						// done()/_done() haven't been called synchronously
 						isAsync = true
 						startTimer()
 					}
 				}
 				catch (e) {
-					if (isInternal) throw e
-					else finalize(e, true, false)
+					finalize(e, true, false)
 				}
-				globalTimeout = noTimeoutRightNow
 
 				// public API, may only be called once from user code (or after the resolution
 				// of a thenable that's been returned at the end of the test)
@@ -408,7 +570,7 @@ else window.o = m()
 					if (isDone) throw new Error(task.doneTwiceError)
 					isDone = true
 					if (isAsync && timeout === undefined) {
-						globalTimedOutAndPendingResolution--
+						$timedOutAndPendingResolution--
 						console.warn(
 							task.context
 							+ "\n# elapsed: " + Math.round(new Date - taskStartTime)
@@ -417,31 +579,31 @@ else window.o = m()
 					}
 
 
-					if (!isFinalized) finalize(err, threw, false)
+					if (!hasMovedOn) finalize(err, threw, false)
 				}
 				// called only for async tests
 				function startTimer() {
 					timeout = setTimeout(function() {
 						timeout = undefined
-						globalTimedOutAndPendingResolution++
+						$timedOutAndPendingResolution++
 						finalize("async test timed out after " + delay + "ms\nWarning: assertions starting with `???` may not be properly labelled", true, true)
 					}, Math.min(delay, 0x7fffffff))
 				}
 				// common test finalization code path, for internal use only
 				function finalize(err, threw, isTimeout) {
-					if (isFinalized) {
+					if (hasMovedOn) {
 						// failsafe for hacking, should never happen in released code
 						throw new Error("Multiple finalization")
 					}
-					isFinalized = true
+					hasMovedOn = true
 
 					if (threw) {
 						if (err instanceof Error) fail(new Assertion().i, err.message, err)
 						else fail(new Assertion().i, String(err), null)
 						if (!isTimeout) {
-							globalBail()
+							$bail()
 							if (task.hookName === "beforeEach") {
-								while (tasks[cursor].error != null && tasks[cursor].depth > task.depth) cursor++
+								while (!task.internal != null && tasks[cursor].depth > task.depth) cursor++
 							}
 						}
 					}
@@ -461,12 +623,12 @@ else window.o = m()
 		results.push({
 			pass: null,
 			message: "Incomplete assertion in the test definition starting at...",
-			error: globalTestOrHook.error,
-			task: globalTestOrHook,
-			timeoutLimbo: globalTimedOutAndPendingResolution === 0,
+			error: $task.error,
+			task: $task,
+			timeoutLimbo: $timedOutAndPendingResolution === 0,
 			// Deprecated
-			context: (globalTimedOutAndPendingResolution === 0 ? "" : "??? ") + globalTestOrHook.context,
-			testError: globalTestOrHook.error
+			context: ($timedOutAndPendingResolution === 0 ? "" : "??? ") + $task.context,
+			testError: $task.error
 		})
 	}
 
@@ -485,6 +647,8 @@ else window.o = m()
 			assertion(self, value)
 			return function(message) {
 				if (Array.isArray(message)) {
+					// We got a tagged template literal,
+					// we'll interpolate the dynamic values.
 					var args = arguments
 					message = message.reduce(function(acc, v, i) {return acc + args[i] + v})
 				}
@@ -509,6 +673,7 @@ else window.o = m()
 			throw e
 		}
 	})
+	Assertion.prototype._ = Assertion.prototype.satisfies
 	define("notSatisfies", function notSatisfies(self, check) {
 		try {
 			var res = check(self.value)
@@ -519,7 +684,6 @@ else window.o = m()
 			throw e
 		}
 	})
-
 	function isArguments(a) {
 		if ("callee" in a) {
 			for (var i in a) if (i === "callee") return false
@@ -530,7 +694,7 @@ else window.o = m()
 		var desc = Object.getOwnPropertyDescriptors(x)
 		return Object.keys(desc).filter(function(k){return desc[k].enumerable})
 	}
-	
+
 	function deepEqual(a, b) {
 		if (a === b) return true
 		if (a === null ^ b === null || a === undefined ^ b === undefined) return false // eslint-disable-line no-bitwise
@@ -649,7 +813,7 @@ else window.o = m()
 		return spyFactoryCache[name] && spyFactoryCache[name][length] || makeSpyFactory(name, length)
 	}
 
-	function spyHelper(self, args, fn, spy) {
+	function globalSpyHelper(self, args, fn, spy) {
 		spy.this = self
 		spy.args = args
 		spy.calls.push({this: self, args: args})
@@ -666,22 +830,26 @@ else window.o = m()
 	// eslint-disable-next-line no-new-func, no-empty
 	try {supportsEval = Function("return true")()} catch(e){}
 
-	o.spy = function spy(fn) {
-		var name = "", length = 0
-		if (fn) name = fn.name, length = fn.length
-		var spy = (!supportsFunctionMutations && supportsEval)
-			? getOrMakeSpyFactory(name, length)(fn, spyHelper)
-			: function(){return spyHelper(this, [].slice.call(arguments), fn, spy)}
-		if (supportsFunctionMutations) Object.defineProperties(spy, {
-			name: {value: name},
-			length: {value: length}
-		})
-
-		spy.args = []
-		spy.calls = []
-		spy.callCount = 0
-		return spy
+	function createSpy(helper) {
+		return function spy(fn) {
+			var name = "", length = 0
+			if (fn) name = fn.name, length = fn.length
+			var spy = (!supportsFunctionMutations && supportsEval)
+				? getOrMakeSpyFactory(name, length)(fn, helper)
+				: function(){return helper(this, [].slice.call(arguments), fn, spy)}
+			if (supportsFunctionMutations) Object.defineProperties(spy, {
+				name: {value: name},
+				length: {value: length}
+			})
+	
+			spy.args = []
+			spy.calls = []
+			spy.callCount = 0
+			return spy
+		}
 	}
+
+	o.spy = createSpy(globalSpyHelper)
 
 	// Reporter
 	var colorCodes = {

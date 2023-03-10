@@ -12,7 +12,7 @@ Noiseless testing framework
 
 ## About
 
-- ~1100 LOC including the CLI runner<sup>1</sup>
+- ~660 LOC including the CLI runner
 - terser and faster test code than with mocha, jasmine or tape
 - test code reads like bullet points
 - assertion code follows [SVO](https://en.wikipedia.org/wiki/Subject–verb–object) structure in present tense for terseness and readability
@@ -26,8 +26,6 @@ Noiseless testing framework
   - async tests and hooks
 - explicitly regulates test-space configuration to encourage focus on testing, and to provide uniform test suites across projects
 
-Note: <sup>1</sup> ospec is currently in the process of changing some of its API surface. The legacy and updated APIs are both implemented right now to ease the transition, once legacy code has been removed we'll clock around 800 LOC.
-
 ## Usage
 
 ### Single tests
@@ -37,10 +35,10 @@ Both tests and assertions are declared via the `o` function. Tests should have a
 ```javascript
 var o = require("ospec")
 
-o("addition", function() {
+o("addition", o => {
     o(1 + 1).equals(2)
 })
-o("subtraction", function() {
+o("subtraction", o => {
     o(1 - 1).notEquals(2)
 })
 ```
@@ -48,7 +46,7 @@ o("subtraction", function() {
 Assertions may have descriptions:
 
 ```javascript
-o("addition", function() {
+o("addition", o => {
     o(1 + 1).equals(2)("addition should work")
 
     /* in ES6, the following syntax is also possible
@@ -71,11 +69,11 @@ Error
 Tests may be organized into logical groups using `o.spec`
 
 ```javascript
-o.spec("math", function() {
-    o("addition", function() {
+o.spec("math", () => {
+    o("addition", o => {
         o(1 + 1).equals(2)
     })
-    o("subtraction", function() {
+    o("subtraction", o => {
         o(1 - 1).notEquals(2)
     })
 })
@@ -88,12 +86,12 @@ Group names appear as a breadcrumb trail in test descriptions: `math > addition:
 Groups can be nested to further organize test groups. Note that tests cannot be nested inside other tests.
 
 ```javascript
-o.spec("math", function() {
-    o.spec("arithmetics", function() {
-        o("addition", function() {
+o.spec("math", () => {
+    o.spec("arithmetics", () => {
+        o("addition", o => {
             o(1 + 1).equals(2)
         })
-        o("subtraction", function() {
+        o("subtraction", o => {
             o(1 - 1).notEquals(2)
         })
     })
@@ -111,8 +109,8 @@ function call(cb, arg) {cb(arg)}
 //test suite
 var o = require("ospec")
 
-o.spec("call()", function() {
-    o("works", function() {
+o.spec("call()", () => {
+    o("works", o => {
         var spy = o.spy()
         call(spy, 1)
 
@@ -135,12 +133,12 @@ function inc() {
 //test suite
 var o = require("ospec")
 
-o.spec("call()", function() {
-    o("works", function() {
+o.spec("call()", () => {
+    o("works", o => {
         var spy = o.spy(inc)
         spy()
 
-        o(count).equals(1)
+        o(count).equals(spy.callCount)
     })
 })
 
@@ -148,26 +146,24 @@ o.spec("call()", function() {
 
 ### Asynchronous tests
 
-If a test body function declares a named argument, the test is assumed to be asynchronous, and the argument is a function that must be called exactly one time to signal that the test has completed. As a matter of convention, this argument is typically named `done`.
-
 ```javascript
-o("setTimeout calls callback", function(done) {
-    setTimeout(done, 10)
+o("setTimeout calls callback", o => {
+    return new Promise(fulfill => setTimeout(fulfill, 10))
 })
 ```
 
 Alternativly you can return a promise or even use an async function in tests:
 
 ```javascript
-o("promise test", function() {
-    return new Promise(function(resolve) {
+o("promise test", o => {
+    return new Promise(resolve => {
         setTimeout(resolve, 10)
     })
 })
 ```
 
 ```javascript
-o("promise test", async function() {
+o("promise test", async () => {
     await someOtherAsyncFunction()
 })
 ```
@@ -178,21 +174,24 @@ By default, asynchronous tests time out after 200ms. You can change that default
 its children by using the `o.specTimeout(delay)` function.
 
 ```javascript
-o.spec("a spec that must timeout quickly", function() {
+o.spec("a spec that must timeout quickly", () => {
     // wait 20ms before bailing out of the tests of this suite and
     // its descendants
+    const waitFor = n => new Promise(f => setTimeout(f, n))
     o.specTimeout(20)
-    o("some test", function(done) {
-        setTimeout(done, 10) // this will pass
+    o("some test", async o => {
+        await waitFor(10)
+        o(1 + 1).equals(2)
     })
 
-    o.spec("a child suite where the delay also applies", function () {
-        o("some test", function(done) {
-            setTimeout(done, 30) // this will time out.
+    o.spec("a child suite where the delay also applies", () => {
+        o("some test", async o => {
+            await waitFor(30) // this will cause a timeout to be reported
+            o(1 + 1).equals(2)// even if the assertions succeed.
         })
     })
 })
-o.spec("a spec that uses the default delay", function() {
+o.spec("a spec that uses the default delay", () => {
     // ...
 })
 ```
@@ -200,48 +199,35 @@ o.spec("a spec that uses the default delay", function() {
 This can also be changed on a per-test basis using the `o.timeout(delay)` function from within a test:
 
 ```javascript
-o("setTimeout calls callback", function(done) {
-    o.timeout(500) //wait 500ms before bailing out of the test
-
-    setTimeout(done, 300)
+const waitFor = n => new Promise(f => setTimeout(f, n))
+o("setTimeout calls callback", async o => {
+    o.timeout(500) //wait 500ms before setting the test as timed out and moving forward.
+    await(300)
+    o(1 + 1).equals(2)
 })
 ```
 
-Note that the `o.timeout` function call must be the first statement in its test. It also works with Promise-returning tests:
+Note that the `o.timeout` function call must be the first statement in its test.
 
-```javascript
-o("promise test", function() {
-    o.timeout(1000)
-    return someOtherAsyncFunctionThatTakes900ms()
-})
-```
-
-```javascript
-o("promise test", async function() {
-    o.timeout(1000)
-    await someOtherAsyncFunctionThatTakes900ms()
-})
-```
-
-Asynchronous tests generate an assertion that succeeds upon calling `done` or fails on timeout with the error message `async test timed out`.
+Test timeouts are reported along with test failures and errors thrown at the end of the run. A test timeout causes the test runner to exit with a non-zero status code.
 
 ### `before`, `after`, `beforeEach`, `afterEach` hooks
 
 These hooks can be declared when it's necessary to setup and clean up state for a test or group of tests. The `before` and `after` hooks run once each per test group, whereas the `beforeEach` and `afterEach` hooks run for every test.
 
 ```javascript
-o.spec("math", function() {
+o.spec("math", () => {
     var acc
-    o.beforeEach(function() {
+    o.beforeEach(() => {
         acc = 0
     })
 
-    o("addition", function() {
+    o("addition", o => {
         acc += 1
 
         o(acc).equals(1)
     })
-    o("subtraction", function() {
+    o("subtraction", o => {
         acc -= 1
 
         o(acc).equals(-1)
@@ -251,57 +237,76 @@ o.spec("math", function() {
 
 It's strongly recommended to ensure that `beforeEach` hooks always overwrite all shared variables, and avoid `if/else` logic, memoization, undo routines inside `beforeEach` hooks.
 
+You can run assertions from the hooks:
+
+```javascript
+o.afterEach(o => {
+    o(postConditions).equals(met)
+})
+```
+
 ### Asynchronous hooks
 
 Like tests, hooks can also be asynchronous. Tests that are affected by asynchronous hooks will wait for the hooks to complete before running.
 
 ```javascript
-o.spec("math", function() {
-    var acc
-    o.beforeEach(function(done) {
-        setTimeout(function() {
-            acc = 0
-            done()
-        })
+o.spec("math", () => {
+    let state
+    o.beforeEach(async() => {
+        // async initialization
+        state = await (async function () {return 0})()
     })
 
-    //tests only run after async hooks complete
-    o("addition", function() {
-        acc += 1
+    //tests only run after the async hooks are complete
+    o("addition", o => {
+        state += 1
 
-        o(acc).equals(1)
+        o(state).equals(1)
     })
-    o("subtraction", function() {
+    o("subtraction", o => {
         acc -= 1
 
-        o(acc).equals(-1)
+        o(state).equals(-1)
     })
 })
 ```
+
+To ease the transition from older `ospec` versions to the v5+ API, we also provide a `done` helper, to be used as follow:
+
+```javascript
+o("setTimeout calls callback", ({o, done}) => {
+    setTimeout(()=>{
+        if (error) done(error)
+        else done()
+    }), 10)
+})
+```
+
+If an argument is passed to `done`, the corresponding promise is rejected.
 
 ### Running only some tests
 
 One or more tests can be temporarily made to run exclusively by calling `o.only()` instead of `o`. This is useful when troubleshooting regressions, to zero-in on a failing test, and to avoid saturating console log w/ irrelevant debug information.
 
 ```javascript
-o.spec("math", function() {
+o.spec("math", () => {
     // will not run
-    o("addition", function() {
+    o("addition", o => {
         o(1 + 1).equals(2)
     })
 
     // this test will be run, regardless of how many groups there are
-    o.only("subtraction", function() {
+    o.only("subtraction", () => {
         o(1 - 1).notEquals(2)
     })
 
     // will not run
-    o("multiplication", function() {
+    o("multiplication", o => {
         o(2 * 2).equals(4)
     })
 
     // this test will be run, regardless of how many groups there are
-    o.only("division", function() {
+    o.only("division", () => {
         o(6 / 2).notEquals(2)
     })
 })
@@ -311,7 +316,7 @@ o.spec("math", function() {
 
 ```javascript
 //define a test
-o("addition", function() {
+o("addition", o => {
     o(1 + 1).equals(2)
 })
 
@@ -325,8 +330,8 @@ The `o.new()` method can be used to create new instances of ospec, which can be 
 
 ```javascript
 var _o = o.new('optional name')
-_o("a test", function() {
-    _o(1).equals(1)
+_o("a test", o => {
+    o(1).equals(1)
 })
 _o.run()
 ```
@@ -348,7 +353,7 @@ Create a script in your package.json:
 npm test
 ```
 
-**NOTE:** `o.run()` is automatically called by the cli - no need to call it in your test code.
+**NOTE:** `o.run()` is automatically called by the CLI runner - no need to call it in your test code.
 
 ### CLI Options
 
@@ -426,27 +431,43 @@ export PATH=./node_modules/.bin:$PATH
 
 Square brackets denote optional arguments
 
-### void o.spec(String title, Function tests)
+### `o.spec(title: string, tests: () => void) => void`
 
 Defines a group of tests. Groups are optional
 
 ---
 
-### void o(String title, Function([Function done]) assertions)
+### `o(title: string,  assertions: (o: AssertionFactory) => void) => void`
 
-Defines a test.
-
-If an argument is defined for the `assertions` function, the test is deemed to be asynchronous, and the argument is required to be called exactly one time.
+Defines a test. The `assertions` function can be async. It receives the assertion factory as argument.
 
 ---
 
-### Assertion o(any value)
+### `type AssertionFactory = (value: any) => Assertion`
 
-Starts an assertion. There are six types of assertion: `equals`, `notEquals`, `deepEquals`, `notDeepEquals`, `throws`, `notThrows`.
+Starts an assertion. There are seven types of assertion: `equals`, `notEquals`, `deepEquals`, `notDeepEquals`, `throws`, `notThrows`, and, for extensions, `_`.
+
+```typescript
+type OptionalMessage = (message:string) => void
+
+type AssertionResult = {pass: boolean, message: string}
+
+interface Assertion {
+  equals: (value: any) => OptionalMessage
+  notEquals: (value: any) => OptionalMessage
+  deepEquals: (value: any) => OptionalMessage
+  notDeepEquals: (value: any) => OptionalMessage
+  throws: (value: any) => OptionalMessage
+  notThrows: (value: any) => OptionalMessage
+  // For plugins:
+  _: (validator: ()=>AssertionResult) => void
+}
+
+```
 
 Assertions have this form:
 
-```shell
+```javascript
 o(actualValue).equals(expectedValue)
 ```
 
@@ -461,96 +482,102 @@ o(actualValue).equals(expectedValue)("this is a description for this assertion")
 Assertion descriptions can be simplified using ES6 tagged template string syntax:
 
 ```javascript
-o(actualValue).equals(expectedValue) `this is a description for this assertion`
+o(actualValue).equals(expectedValue)`likewise, with an interpolated ${value}`
 ```
 
-#### Function(String description) o(any value).equals(any value)
+#### `o(value: any).equals(value: any)`
 
-Asserts that two values are strictly equal (`===`)
+Asserts that two values are strictly equal (`===`). Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
-#### Function(String description) o(any value).notEquals(any value)
+#### `o(value: any).notEquals(value: any)`
 
-Asserts that two values are strictly not equal (`!==`)
+Asserts that two values are strictly not equal (`!==`). Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
-#### Function(String description) o(any value).deepEquals(any value)
+#### `o(value: any).deepEquals(value: any)`
 
-Asserts that two values are recursively equal
+Asserts that two values are recursively equal. Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
-#### Function(String description) o(any value).notDeepEquals(any value)
+#### `o(value: any).notDeepEquals(value: any)`
 
-Asserts that two values are not recursively equal
+Asserts that two values are not recursively equal. Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
-#### Function(String description) o(Function fn).throws(Object constructor)
+#### `o(fn: (...args: any[]) => any).throws(fn: constructor)`
 
-Asserts that a function throws an instance of the provided constructo
+Asserts that a function throws an instance of the provided constructor. Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
-#### Function(String description) o(Function fn).throws(String message)
+#### `o(fn: (...args: any[]) => any).throws(message: string)`
 
-Asserts that a function throws an Error with the provided message
+Asserts that a function throws an Error with the provided message. Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
-#### Function(String description) o(Function fn).notThrows(Object constructor)
+#### `o(fn: (...args: any[]) => any).notThrows(fn: constructor)`
 
-Asserts that a function does not throw an instance of the provided constructor
+Asserts that a function does not throw an instance of the provided constructor. Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
-#### Function(String description) o(Function fn).notThrows(String message)
+#### `o(fn: (...args: any[]) => any).notThrows(message: string)`
 
-Asserts that a function does not throw an Error with the provided message
-
----
-
-### void o.before(Function([Function done]) setup)
-
-Defines code to be run at the beginning of a test group
-
-If an argument is defined for the `setup` function, this hook is deemed to be asynchronous, and the argument is required to be called exactly one time.
+Asserts that a function does not throw an Error with the provided message. Returns an `OptionalMessage` that can be called if desired to contextualize the assertion message.
 
 ---
 
-### void o.after(Function([Function done) teardown)
+### `o.before(setup: (o: AssertionFactoy) => void)`
 
-Defines code to be run at the end of a test group
+Defines code to be run at the beginning of a test group.
 
-If an argument is defined for the `teardown` function, this hook is deemed to be asynchronous, and the argument is required to be called exactly one time.
-
----
-
-### void o.beforeEach(Function([Function done]) setup)
-
-Defines code to be run before each test in a group
-
-If an argument is defined for the `setup` function, this hook is deemed to be asynchronous, and the argument is required to be called exactly one time.
+The `AssertionFactory` is injected as an argument into the `setup` function. It is called `o` by convention.
 
 ---
 
-### void o.afterEach(Function([Function done]) teardown)
+### `o.after(teardown: (o: AssertionFactoy) => void)`
 
-Defines code to be run after each test in a group
+Defines code to be run at the end of a test group.
 
-If an argument is defined for the `teardown` function, this hook is deemed to be asynchronous, and the argument is required to be called exactly one time.
-
----
-
-### void o.only(String title, Function([Function done]) assertions)
-
-Declares that only a single test should be run, instead of all of them
+The `AssertionFactory` is injected as an argument into the `setup` function. It is called `o` by convention.
 
 ---
 
-### Function o.spy([Function fn])
+### `o.beforeEach(setup: (o: AssertionFactoy) => void)`
 
-Returns a function that records the number of times it gets called, and its arguments
+Defines code to be run before each test in a group.
 
-#### Number o.spy().callCount
+The `AssertionFactory` is injected as an argument into the `setup` function. It is called `o` by convention.
+
+---
+
+### `o.after(teardown: (o: AssertionFactoy) => void)`
+
+Defines code to be run after each test in a group.
+
+The `AssertionFactory` is injected as an argument into the `setup` function. It is called `o` by convention.
+
+---
+
+### `o.only(title: string, assertions: (o: AssertionFactoy) => void)`
+
+You can replace a `o("message", o=>{/* assertions */})` call with `o.only("message", o=>{/* assertions */})`. If `o.only` is encountered plain `o()` test definitions will be ignored, and those maked as `only` will be the only ones to run.
+
+---
+
+### `o.spy(fn: (...args: any[]) => any)`
+
+Returns a function that records the number of times it gets called, and its arguments.
+
+The resulting function has the same `.name` and `.length` properties as the one `o.spy()` received as argument. It also has the following additional properties:
+
+#### `o.spy().callCount`
 
 The number of times the function has been called
 
-#### Array&lt;any> o.spy().args
+#### `o.spy().args`
 
-The arguments that were passed to the function in the last time it was called
+The `arguments` that were passed to the function in the last time it was called
+
+#### `o.spy().calls`
+
+An array of `{this, args}` objects that reflect, for each time the spied on function was called, the `this` value recieved if it was called as a method, and the corresponding `args`.
 
 ---
 
-### void o.run([Function reporter])
+### `o.run(reporter: (results: Result[]) => number)`
 
 Runs the test suite. By default passing test results are printed using
 `console.log` and failing test results are printed using `console.error`.
@@ -560,24 +587,24 @@ reporter to process [test result data](#result-data) yourself.
 
 If running in Node.js, ospec will call `process.exit` after reporting
 results by default. If you specify a reporter, ospec will not do this
-and allow your reporter to respond to results in its own way.
+and allows your reporter to respond to results in its own way.
 
 ---
 
-### Number o.report(results)
+### `o.report(results: Result[])`
 
-The default reporter used by `o.run()` when none are provided. Returns the number of failures, doesn't exit Node.js by itself. It expects an array of [test result data](#result-data) as argument.
+The default reporter used by `o.run()` when none are provided. Returns the number of failures. It expects an array of [test result data](#result-data) as argument.
 
 ---
 
-### Function o.new()
+### `o.new()`
 
 Returns a new instance of ospec. Useful if you want to run more than one test suite concurrently
 
 ```javascript
 var $o = o.new()
-$o("a test", function() {
-    $o(1).equals(1)
+$o("a test", o => {
+    o(1).equals(1)
 })
 $o.run()
 ```
@@ -594,10 +621,18 @@ Test results are available by reference for integration purposes. You
 can use custom reporters in `o.run()` to process these results.
 
 ```javascript
-o.run(function(results) {
+interface Result {
+    pass: Boolean | null,
+    message: string,
+    context: string,
+    error: Error,
+    testError: Error,
+}
+
+o.run((results: Results[]) => {
     // results is an array
 
-    results.forEach(function(result) {
+    results.forEach(result => {
         // ...
     })
 })
@@ -605,34 +640,34 @@ o.run(function(results) {
 
 ---
 
-### Boolean|Null result.pass
+### `result.pass`
 
 - `true` if the assertion passed.
 - `false` if the assertion failed.
-- `null` if the assertion was incomplete (`o("partial assertion) // and that's it`).
+- `null` if the assertion was incomplete (`o("partial assertion")` without an assertion method called).
 
 ---
 
-### Error result.error
+### `result.error`
 
 The `Error` object explaining the reason behind a failure. If the assertion failed, the stack will point to the actuall error. If the assertion did pass or was incomplete, this field is identical to `result.testError`.
 
 ---
 
-### Error result.testError
+### `result.testError`
 
 An `Error` object whose stack points to the test definition that wraps the assertion. Useful as a fallback because in some async cases the main may not point to test code.
 
 ---
 
-### String result.message
+### `result.message`
 
 If an exception was thrown inside the corresponding test, this will equal that Error's `message`. Otherwise, this will be a preformatted message in [SVO form](https://en.wikipedia.org/wiki/Subject%E2%80%93verb%E2%80%93object). More specifically, `${subject}\n${verb}\n${object}`.
 
 As an example, the following test's result message will be `"false\nshould equal\ntrue"`.
 
 ```javascript
-o.spec("message", function() {
+o.spec("message", () => {
     o(false).equals(true)
 })
 ```
@@ -640,21 +675,21 @@ o.spec("message", function() {
 If you specify an assertion description, that description will appear two lines above the subject.
 
 ```javascript
-o.spec("message", function() {
+o.spec("message", () => {
     o(false).equals(true)("Candyland") // result.message === "Candyland\n\nfalse\nshould equal\ntrue"
 })
 ```
 
 ---
 
-### String result.context
+### `result.context`
 
 A `>`-separated string showing the structure of the test specification.
 In the below example, `result.context` would be `testing > rocks`.
 
 ```javascript
-o.spec("testing", function() {
-    o.spec("rocks", function() {
+o.spec("testing", () => {
+    o.spec("rocks", () => {
         o(false).equals(true)
     })
 })
@@ -714,15 +749,16 @@ For every error thrown, a "bail out" failure is reported.
 
 ## Goals
 
-Ospec started as a bare bones test runner optimized for Leo Horie to write Mithril v1 with as little hasle as possible. It has since grown in capabilities and polish, and while we tried to keep some of the original spirit, the current incarnation is not as radically minimalist as the original. The state of the art in testing has also moved with the dominance of Jest over Jasmine and Mocha, and now Vitest coming up the horizon.
+Ospec started as a bare bones test runner optimized for Leo Horie to write Mithril v1 with as little hasle as possible. It has since grown in capabilities and polish, and while we tried to keep some of the original spirit, the current incarnation is not as radically minimalist as the original. The state of the art in testing has also moved with the dominance of Jest over Jasmine and Mocha, and now Vitest coming up the horizon. The goals in 2023 are:
 
 - Do the most common things that the mocha/chai/sinon triad does without having to install 3 different libraries and several dozen dependencies
 - Limit configuration in test-space:
   - Disallow ability to pick between API styles (BDD/TDD/Qunit, assert/should/expect, etc)
-  - No "magic" plugin system with global reach. Custom assertions need to be imported or defined lexically (e.g. in `o(value)._(matches(refence))`, `matches` can be resolved in file).
+  - No "magic" plugin system with global reach.
   - Provide a default simple reporter
 - Make assertion code terse, readable and self-descriptive
 - Have as few assertion types as possible for a workable usage pattern
+- Don't flood the result log with failures if you break a core part of the project you're testing. An error thrown in test space will abort the current spec.
 
 These restrictions have a few benefits:
 

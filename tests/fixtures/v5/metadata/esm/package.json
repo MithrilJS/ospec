@@ -1,0 +1,8 @@
+{
+	"license": "ISC",
+	"scripts": {
+		"metadata": "ospec default1.js default2.js override.js",
+		"which": "which ospec"
+	},
+	"type": "module"
+}

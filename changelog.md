@@ -18,6 +18,14 @@ Change log
 
 ### Upcoming
 
+#### feature
+
+- new API that tiemtout and race-condition proof. Assertions and spies that run after a test is done are registered as failures
+
+#### Bug fix
+
+- Escape percent signs in the report in Node.js, fix [#57](https://github.com/MithrilJS/ospec/issue/57). Thanks to [@LeXofLeviafan](https://github.com/LeXofLeviafan) for the report.
+
 ### 4.1.7
 _2023-01-20_
 

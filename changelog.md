@@ -1,6 +1,15 @@
 # Change log for ospec
 
 - [Upcoming](#upcoming)
+- [4.2.0](#420)
+- [4.1.7](#417)
+- [4.1.6](#416)
+- [4.1.5](#415)
+- [4.1.4](#414)
+- [4.1.3](#413)
+- [4.1.2](#412)
+- [4.1.1](#411)
+- [4.1.0](#410)
 - [4.0.1](#401)
 - [4.0.0](#400)
 - [3.1.0](#310)
@@ -18,9 +27,12 @@ Change log
 
 ### Upcoming
 
-#### feature
+*Nothing yet*
 
-- new API that tiemtout and race-condition proof. Assertions and spies that run after a test is done are registered as failures
+### 4.2.0
+_2023-03-10_
+
+- new API that tiemtout and race-condition proof. Assertions and spies that run after a test is done are registered as failures. This is opt-in for now, it will become the default in v5 (the old API will become opt-in at that point to ease the transition).
 
 #### Bug fix
 
@@ -29,7 +41,7 @@ Change log
 ### 4.1.7
 _2023-01-20_
 
-#### Bug fix
+#### Bug fixes
 
 - Explicitly `exit()` the process after all test have passed, to avoid the process hanging due to a dangling `setInterval` somewhere (by [Már Örlygsson](https://github.com/maranomynet), [#51](https://github.com/MithrilJS/ospec/pull/51)).
 - Tweak the CLI test suite to accomodate the new `pnpm` output on error.
@@ -56,7 +68,7 @@ _2022-05-19_
 ### 4.1.4
 _2022-05-19_
 
-#### Bug fix
+#### Bug fixes
 
 - Work around a Rollup limitation, fixes [#25](https://github.com/MithrilJS/ospec/issues/25) Thanks to [Ivan Kupalov](https://github.com/charlag) for the report and preliminary fix.
 - Properly handle objects with a null prototype in `.deepEquals` assertions. Fixes [#41](https://github.com/MithrilJS/ospec/issues/41)

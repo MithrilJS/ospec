@@ -1,6 +1,6 @@
 {
   "name": "ospec",
-  "version": "4.1.7-next",
+  "version": "4.2.0",
   "description": "Noiseless testing framework",
   "main": "ospec.js",
   "unpkg": "ospec.js",

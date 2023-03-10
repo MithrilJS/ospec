@@ -32,7 +32,7 @@ Change log
 ### 4.2.0
 _2023-03-10_
 
-- new API that tiemtout and race-condition proof. Assertions and spies that run after a test is done are registered as failures. This is opt-in for now, it will become the default in v5 (the old API will become opt-in at that point to ease the transition).
+- new API that timetout and race-condition proof. Assertions and spies that run after a test is done are registered as failures. This is opt-in for now, it will become the default in v5 (the old API will become opt-in at that point to ease the transition).
 
 #### Bug fix
 

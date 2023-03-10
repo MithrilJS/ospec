@@ -22,13 +22,19 @@ const projectCwd = process.cwd()
 const ospecPkgJsonPath = join(projectCwd, "package.json")
 const ospecLibPath = join(projectCwd, "ospec.js")
 const ospecBinPath = join(projectCwd, "bin/ospec")
-const fixturesDir = join(projectCwd, "./tests/fixtures")
+const fixturesDir = (api) => join(projectCwd, `./tests/fixtures`, api)
+
 
 const parsed = /^v(\d+)\.(\d+)\./.exec(process.version)
 
 const supportsESM = parsed && Number(parsed[1]) > 13 || Number(parsed[1]) === 13 && Number(parsed[2]) >= 2
 
 const timeoutDelay = 20000
+
+const APIs = [
+	"legacy",
+	"v5"
+]
 
 const moduleKinds = supportsESM
 	? [
@@ -57,11 +63,12 @@ const commands = [
 commands.unshift("ospec")
 
 console.log(`Testing (${
+	APIs.map(api => `${api} API`).join(" + ")
+}) x (${
 	moduleKinds.join(" + ")
 }) x (${
 	commands.map((c) => c+versions[c]).join(" + ")
 })`)
-
 
 function childPromise(child) {
 	const err = []
@@ -228,57 +235,61 @@ const env = {
 }
 
 function runningIn({scenario, files}, suite) {
-	const scenarioPath = join(fixturesDir, scenario)
 	// eslint-disable-next-line global-require
-	const config = require(join(scenarioPath, "config.js"))
-	const allFiles = expandPaths(config.js, ["node_modules/dummy-module-with-tests-cjs/tests/should-not-run.js"])
+	APIs.forEach(api => {
+		const scenarioPath = join(fixturesDir(api), scenario)
+		const config = require(join(scenarioPath, "config.js"))
+		const allFiles = expandPaths(config.js, ["node_modules/dummy-module-with-tests-cjs/tests/should-not-run.js"])
+		// `scenario` before `api` to avoid duplicate names in the parent spec
+		o.spec(`${api} API > ${scenario}`, () => {
+			moduleKinds.forEach((mod) => {
+				o.spec(mod, () => {
+					const cwd = join(scenarioPath, mod)
+					o.before(async () => {
+						o.timeout(timeoutDelay)
+						await remove(cwd)
+						await createDir(config.js, cwd, mod)
+						await createPackageJson(config["package.json"], cwd, mod)
+						await createNodeModules(cwd, mod)
+						// sanity checks
+						await checkIfFilesExist(cwd, files)
+						const snrPath = join(
+							cwd, "node_modules", "dummy-module-with-tests-cjs", "tests", "should-not-run.js"
+						)
+						await readFromCmd("node", {cwd})(snrPath).then(
+							({code, stdout, stderr}) => {
+								stdout = stdout.replace(/\r?\n$/, "")
+								stderr = removeWarnings(stderr)
+								o({code}).deepEquals({code: 0})(snrPath)
+								o({stdout}).deepEquals({stdout: `${snrPath} ran`})(snrPath)
+								o({stderr}).deepEquals({stderr: ""})(snrPath)
+							},
+						)
+					})
+					commands.forEach((command) => {
+						o.spec(command, () => {
+							const {scripts} = config["package.json"]
 
-	o.spec(scenario, () => {
-		moduleKinds.forEach((mod) => {
-			o.spec(mod, () => {
-				const cwd = join(scenarioPath, mod)
-				o.before(async () => {
-					o.timeout(timeoutDelay)
-					await remove(cwd)
-					await createDir(config.js, cwd, mod)
-					await createPackageJson(config["package.json"], cwd, mod)
-					await createNodeModules(cwd, mod)
-					// sanity checks
-					await checkIfFilesExist(cwd, files)
-					const snrPath = join(
-						cwd, "node_modules", "dummy-module-with-tests-cjs", "tests", "should-not-run.js"
-					)
-					await readFromCmd("node", {cwd})(snrPath).then(
-						({code, stdout, stderr}) => {
-							stdout = stdout.replace(/\r?\n$/, "")
-							stderr = removeWarnings(stderr)
-							o({code}).deepEquals({code: 0})(snrPath)
-							o({stdout}).deepEquals({stdout: `${snrPath} ran`})(snrPath)
-							o({stderr}).deepEquals({stderr: ""})(snrPath)
-						},
-					)
-				})
-				commands.forEach((command) => {
-					o.spec(command, () => {
-						const {scripts} = config["package.json"]
+							const run = ["npm", "pnpm", "yarn"].includes(command)
+								? readFromCmd(command, {cwd, shell: true}).bind(null, "run")
+								: (
+									// slice off `ospec ` from the package.json::scripts entries
+									(scenario) => readFromCmd(command, {cwd, env, shell: true})(scripts[scenario].slice(6))
+								)
 
-						const run = ["npm", "pnpm", "yarn"].includes(command)
-							? readFromCmd(command, {cwd, shell: true}).bind(null, "run")
-							: (
-								(scenario) => readFromCmd(command, {cwd, env, shell: true})(scripts[scenario].slice(6))
-							)
-
-						let before
-						o.before(() => {
-							console.log(`[ ${scenario} + ${mod} + ${command} ]`)
-							before = performance.now()
+							let before
+							o.before(() => {
+								console.log(`[ ${scenario} + ${api} API + ${mod} + ${command}]`)
+								before = performance.now()
+							})
+							o.after(() => console.log(`...took ${Math.round(performance.now()-before)} ms`))
+							
+							suite({allFiles, command, cwd, run: (arg) => run(arg)})
 						})
-						o.after(() => console.log(`...took ${Math.round(performance.now()-before)} ms`))
-						
-						suite({allFiles, command, cwd, run: (arg) => run(arg)})
 					})
 				})
 			})
+
 		})
 	})
 }

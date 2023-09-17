@@ -156,7 +156,7 @@ o("setTimeout calls callback", function(done) {
 })
 ```
 
-Alternativly you can return a promise or even use an async function in tests:
+Alternatively you can return a promise or even use an async function in tests:
 
 ```javascript
 o("promise test", function() {
@@ -619,7 +619,7 @@ o.run(function(results) {
 
 ### Error result.error
 
-The `Error` object explaining the reason behind a failure. If the assertion failed, the stack will point to the actuall error. If the assertion did pass or was incomplete, this field is identical to `result.testError`.
+The `Error` object explaining the reason behind a failure. If the assertion failed, the stack will point to the actual error. If the assertion did pass or was incomplete, this field is identical to `result.testError`.
 
 ---
 
@@ -718,7 +718,7 @@ For every error thrown, a "bail out" failure is reported.
 
 ## Goals
 
-Ospec started as a bare bones test runner optimized for Leo Horie to write Mithril v1 with as little hasle as possible. It has since grown in capabilities and polish, and while we tried to keep some of the original spirit, the current incarnation is not as radically minimalist as the original. The state of the art in testing has also moved with the dominance of Jest over Jasmine and Mocha, and now Vitest coming up the horizon.
+Ospec started as a bare bones test runner optimized for Leo Horie to write Mithril v1 with as little hassle as possible. It has since grown in capabilities and polish, and while we tried to keep some of the original spirit, the current incarnation is not as radically minimalist as the original. The state of the art in testing has also moved with the dominance of Jest over Jasmine and Mocha, and now Vitest coming up the horizon.
 
 - Do the most common things that the mocha/chai/sinon triad does without having to install 3 different libraries and several dozen dependencies
 - Limit configuration in test-space:

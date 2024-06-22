@@ -10,12 +10,13 @@ const glob = require("glob")
 
 let count = 0
 
-glob("node_modules/.bin/ospec*(.*)")
+glob.globStream("node_modules/.bin/ospec*(.*)")
 
-	.on("match", (x) => {count++; rename(x, x.replace(/ospec(?:-stable)?((?:\.\w+)?)/, "ospec-stable$1"))})
+	.on("data", (x) => {console.log(x); count++; rename(x, x.replace(/ospec(?:-stable)?((?:\.\w+)?)/, "ospec-stable$1"))})
 
 	.on("error", (e) => {
 		throw e
 	})
 
 	.on("end", () => {if (count !== 0) console.log(`We renamed ${count} file${count > 1 ? "s" : ""}`)})
+

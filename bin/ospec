@@ -67,8 +67,8 @@ loaderDetected.then((load) => {
 			let remaining = globList.length
 			let loading = Promise.resolve()
 			globList.forEach((globPattern) => {
-				glob(globPattern, {ignore: ignore})
-					.on("match", (fileName) => {
+				glob.globStream(globPattern, {ignore: ignore})
+					.on("data", (fileName) => {
 						var fullPath = path.join(cwd, fileName)
 						loading = loading.then(() => {
 							o.metadata({file: fullPath})

@@ -26,8 +26,8 @@ Change log
 ======
 
 ### Upcoming
-
-*Nothing yet*
+<!-- Add new lines here. Version number will be decided later -->
+- Update `glob` dependency to v9.
 
 ### 4.2.0
 _2023-03-10_
@@ -130,7 +130,6 @@ _2019-07-24_
 _2019-02-07_
 
 - ospec: Test results now include `.message` and `.context` regardless of whether the test passed or failed. (#2227 @robertakarobin)
-<!-- Add new lines here. Version number will be decided later -->
 - Add `spy.calls` array property to get the `this` and `arguments` values for any arbitrary call. (#2221 @isiahmeadows)
 - Added `.throws` and `.notThrows` assertions to ospec. (#2255 @robertakarobin)
 - Update `glob` dependency.

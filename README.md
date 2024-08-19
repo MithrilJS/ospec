@@ -118,7 +118,7 @@ o.spec("call()", function() {
 
         o(spy.callCount).equals(1)
         o(spy.args[0]).equals(1)
-        o(spy.calls[0]).deepEquals([1])
+        o(spy.calls[0].args).deepEquals([1])
     })
 })
 ```
@@ -538,7 +538,7 @@ Declares that only a single test should be run, instead of all of them
 
 ### Function o.spy([Function fn])
 
-Returns a function that records the number of times it gets called, and its arguments
+Returns a function that records the number of times it gets called, and each call's arguments
 
 #### Number o.spy().callCount
 
@@ -547,6 +547,10 @@ The number of times the function has been called
 #### Array&lt;any> o.spy().args
 
 The arguments that were passed to the function in the last time it was called
+
+#### Array&lt;any> o.spy().calls
+
+An array representing all the times the function was called.  Each array value is an object containing the `this` calling context and an `args` array.
 
 ---
 

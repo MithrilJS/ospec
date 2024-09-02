@@ -27,6 +27,10 @@ Change log
 
 ### Upcoming
 <!-- Add new lines here. Version number will be decided later -->
+
+### 4.2.1
+_2024-09-02_
+
 - Update `glob` dependency to v9.
 
 ### 4.2.0
@@ -79,7 +83,7 @@ _2022-05-19_
 _2022-05-18_
 - Fix post-install crash introduced in v4.1.2
 
-### 4.1.2 
+### 4.1.2
 
 #### Bug fixes
 _2022-05-17_

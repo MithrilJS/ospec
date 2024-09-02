@@ -12,7 +12,7 @@ Noiseless testing framework
 
 ## About
 
-- ~1100 LOC including the CLI runner<sup>1</sup>
+- ~950 LOC including the CLI runner<sup>1</sup>
 - terser and faster test code than with mocha, jasmine or tape
 - test code reads like bullet points
 - assertion code follows [SVO](https://en.wikipedia.org/wiki/Subject–verb–object) structure in present tense for terseness and readability

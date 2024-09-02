@@ -3,121 +3,29 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  test-cli:
+  test:
     runs-on: ${{ matrix.os }}
-    name: CLI Tests, node v${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }} with ${{ matrix.shell }}
+    name: ${{ matrix.task }}, node v${{ matrix.node_version }} on ${{ matrix.os }}
     strategy:
       matrix:
+        task:
+        - test-cli
+        - test-api
         os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
+        - ubuntu-latest
+        - macos-latest
+        - windows-latest
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
         node_version:
-          - 14
-          - 16
-          - 18
-        architecture:
-          - x64
-        shell :
-          - bash
-        include:
-          - os: windows-latest
-            shell: cmd
-            node_version: 14
-          - os: windows-latest
-            shell: powershell
-            node_version: 14
-          - os: windows-latest
-            shell: pwsh
-            node_version: 14
-          - os: windows-latest
-            shell: cmd
-            node_version: 16
-          - os: windows-latest
-            shell: powershell
-            node_version: 16
-          - os: windows-latest
-            shell: pwsh
-            node_version: 16
-          - os: windows-latest
-            shell: cmd
-            node_version: 18
-          - os: windows-latest
-            shell: powershell
-            node_version: 18
-          - os: windows-latest
-            shell: pwsh
-            node_version: 18
+        - 16
+        - 18
+        - 20
+        - 22
     steps:
-    # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token
     - uses: actions/checkout@v3
-
     - name: Use Node.js ${{ matrix.node_version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node_version }}
-
-    - name: Get npm cache directory
-      id: npm-cache-dir
-      shell: bash
-      run: |
-        echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-    - uses: actions/cache@v3
-      with:
-        path: ${{ steps.npm-cache-dir.outputs.dir }}
-        key: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--${{ matrix.shell }}--${{
-          hashFiles(''**/package-lock.json'')
-        }}'
-        restore-keys: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--${{ matrix.shell }}--'
-
     - run: npm ci
-    - run: corepack enable
-    - run: npm run test-cli
-
-
-  test-api:
-    runs-on: ${{ matrix.os }}
-    name: API tests, node v${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        node_version:
-          - 14
-        architecture:
-          - x64
-        include:
-          - os: ubuntu-latest
-            node_version: 16
-          - os: ubuntu-latest
-            node_version: 18
-
-    steps:
-    # https://github.com/actions/checkout#Push-a-commit-using-the-built-in-token
-    - uses: actions/checkout@v3
-
-    - name: Use Node.js v${{ matrix.node_version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node_version }}
-
-    - name: Get npm cache directory
-      id: npm-cache-dir
-      shell: bash
-      run: |
-        echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-    - uses: actions/cache@v3
-      with:
-        path: ${{ steps.npm-cache-dir.outputs.dir }}
-        key: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--default-shell--${{
-          hashFiles(''**/package-lock.json'')
-        }}'
-        restore-keys: 'node-v${{ matrix.node_version }}--arch-${{ matrix.architecture }}--${{ matrix.os }}--default-shell--'
-
-    - run: npm ci
-    - run: corepack enable
-    - run: npm run test-api
+    - run: npm run ${{ matrix.task }}

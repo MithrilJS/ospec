@@ -1,8 +1,8 @@
 # ospec
 
-[![npm License](https://img.shields.io/npm/l/ospec.svg)](https://www.npmjs.com/package/ospec) [![npm Version](https://img.shields.io/npm/v/ospec.svg)](https://www.npmjs.com/package/ospec) [![Build Status](https://img.shields.io/travis/MithrilJS/ospec/master.svg)](https://travis-ci.org/MithrilJS/ospec) [![npm Downloads](https://img.shields.io/npm/dm/ospec.svg)](https://www.npmjs.com/package/ospec)
+[![npm License](https://img.shields.io/npm/l/ospec.svg)](https://www.npmjs.com/package/ospec) [![npm Version](https://img.shields.io/npm/v/ospec.svg)](https://www.npmjs.com/package/ospec) ![Build Status](https://img.shields.io/github/actions/workflow/status/MithrilJS/ospec/.github%2Fworkflows%2Fci.yml) [![npm Downloads](https://img.shields.io/npm/dm/ospec.svg)](https://www.npmjs.com/package/ospec)
 
-[![Donate at OpenCollective](https://img.shields.io/opencollective/all/mithriljs.svg?colorB=brightgreen)](https://opencollective.com/mithriljs) [![Gitter](https://img.shields.io/gitter/room/mithriljs/mithril.js.svg)](https://gitter.im/mithriljs/mithril.js)
+[![Donate at OpenCollective](https://img.shields.io/opencollective/all/mithriljs.svg?colorB=brightgreen)](https://opencollective.com/mithriljs) [![Zulip, join chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://mithril.zulipchat.com/)
 
 ---
 
@@ -711,7 +711,7 @@ While some testing libraries consider error thrown as assertions failure, `ospec
   - An error thrown in a task...
     - ...prevents further streaks and nested specs in the current spec from running. The `after` *hook* of the spec will run.
     - ...if thrown in a `beforeEach` hook of a streak, causes the streak to be hollowed out. Hooks defined in nested scopes and the actual test will not run. However, the `afterEach` hook corresponding to the one that crashed will run, as will those defined in outer scopes.
-  
+
 For every error thrown, a "bail out" failure is reported.
 
 ---

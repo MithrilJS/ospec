@@ -1,6 +1,6 @@
 # ospec
 
-[![License](https://img.shields.io/github/license/MithrilJS/ospec)](https://github.com/MithrilJS/ospec/blob/main/LICENSE) [![npm Version](https://img.shields.io/npm/v/ospec.svg)](https://www.npmjs.com/package/ospec) ![Build Status](https://img.shields.io/github/actions/workflow/status/MithrilJS/ospec/.github%2Fworkflows%2Fci.yml) [![npm Downloads](https://img.shields.io/npm/dm/ospec.svg)](https://www.npmjs.com/package/ospec)
+[![License](https://img.shields.io/github/license/MithrilJS/ospec)](https://github.com/MithrilJS/ospec/blob/main/LICENSE) [![npm Version](https://img.shields.io/npm/v/ospec.svg)](https://www.npmjs.com/package/ospec) ![Build Status](https://github.com/MithrilJS/ospec/actions/workflows/ci.yml/badge.svg)](https://github.com/MithrilJS/ospec/actions/workflows/ci.yml) [![npm Downloads](https://img.shields.io/npm/dm/ospec.svg)](https://www.npmjs.com/package/ospec)
 
 [![Donate at OpenCollective](https://img.shields.io/opencollective/all/mithriljs.svg?colorB=brightgreen)](https://opencollective.com/mithriljs) [![Zulip, join chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://mithril.zulipchat.com/)
 
